@@ -2,7 +2,7 @@
 
 A simple wrapper around some JavaScript.
 
-Thank you to Yi-Cyuan Chen for the JavaScript ([github.com/emn178/js-sha256](https://github.com/emn178/js-sha256).
+Thank you to Yi-Cyuan Chen for the JavaScript ([github.com/emn178/js-sha256](https://github.com/emn178/js-sha256)).
 
 It's as simple as:
 
