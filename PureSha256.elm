@@ -71,17 +71,17 @@ indexLoop i index message length blocks =
               else if code < 0x800 then
                 ( 2
                 , 0
-                , (or (shiftLeft (or 0xc0 (shiftRight code 6)) (shift 1))
-                     (shiftLeft (or 0x80 (and code 0x3f)) (shift 2)))
+                , or (shiftLeft (or 0xc0 (shiftRight code 6)) (shift 1))
+                    (shiftLeft (or 0x80 (and code 0x3f)) (shift 2))
                 )
               else if code < 0xd800 || code >= 0xe000 then
                 ( 3
                 , 0
-                , (or (shiftLeft (or 0xe0 (shiftRight code 12)) (shift 1))
-                     (shiftLeft
-                        (or 0x80 (and (shiftRight code 6) 0x3f))
-                        (shift 2)))
-                    |> (or (shiftLeft (or 0x80 (and code 0x3f)) (shift 3)))
+                , or (shiftLeft (or 0xe0 (shiftRight code 12)) (shift 1))
+                    (shiftLeft
+                       (or 0x80 (and (shiftRight code 6) 0x3f))
+                       (shift 2))
+                    |> or (shiftLeft (or 0x80 (and code 0x3f)) (shift 3))
                 )
               else
                 ( 4
@@ -90,14 +90,14 @@ indexLoop i index message length blocks =
                                 (or (shiftLeft (and code 0x3ff) 10)
                                    (and (get (index+1) message) 0x3ff))
                   in
-                      (or (shiftLeft (or 0xf0 (shiftRight code2 18)) (shift 1))
-                         (shiftLeft
-                            (or 0x80 (and (shiftRight code2 12) 0x3f))
-                            (shift 2)))
-                        |> (or (shiftLeft
-                                  (or 0x80 (and (shiftRight code2 6) 0x3f))
-                                  (shift 3)))
-                        |> (or (shiftLeft (or 0x80 (and code2 0x3f)) (shift 3)))
+                      or (shiftLeft (or 0xf0 (shiftRight code2 18)) (shift 1))
+                        (shiftLeft
+                           (or 0x80 (and (shiftRight code2 12) 0x3f))
+                           (shift 2))
+                        |> or (shiftLeft
+                                 (or 0x80 (and (shiftRight code2 6) 0x3f))
+                                 (shift 3))
+                        |> or (shiftLeft (or 0x80 (and code2 0x3f)) (shift 3))
                 )
         bidx = shiftRight i 2
         bi = get bidx blocks
