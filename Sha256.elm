@@ -11,8 +11,10 @@
 
 module Sha256 exposing (sha256, sha224)
 
-{-| This module makes available a JavaScript implementation of the
+{-| This module makes  available a JavaScript implementation of the
 sha256 and sha224 crytographic hash functions.
+
+Thank you to Yi-Cyuan Chen for writing the JavaScript.
 
 # Functions
 @docs sha256, sha224

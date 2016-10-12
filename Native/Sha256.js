@@ -218,4 +218,3 @@ function sha256 (root) {
 }
 
 }();
-
