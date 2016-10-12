@@ -9,7 +9,7 @@
 --
 ----------------------------------------------------------------------
 
-module Sha256 exposing (sha256, sha224)
+module PureSha256 exposing (sha256, sha224)
 
 {-| This module is a Pure Elm implementation of the sha256 and sha224
 crytographic hash functions.
@@ -24,7 +24,7 @@ import String
 import Char
 import List.Extra as LE
 import Array exposing (Array)
-import Bitwise exposing (and, or, shiftLeft, shiftRight)
+import Bitwise exposing (and, or, shiftLeft, shiftRight, shiftRightLogical)
 
 hexChars : List Char
 hexChars = String.toList("0123456789abcdef")
@@ -47,7 +47,20 @@ k =
 
 get : Int -> Array Int -> Int
 get index array =
+  -- The default is actually an error, but I don't expect it to happen.
   Maybe.withDefault 0 (Array.get index array)
+
+orIntoArray : Int -> Int -> Array Int -> Array Int
+orIntoArray idx val array =
+  Array.set idx (or val (get idx array)) array
+
+getAt : Int -> List Int -> Int
+getAt index list =
+  Maybe.withDefault 0 (LE.getAt index list)
+
+logxor : Int -> Int -> Int
+logxor x y =
+  Bitwise.xor x y
 
 -- Done with SHIFT array in JavaScript code
 -- SHIFT = [24, 16, 8, 0]
@@ -55,10 +68,10 @@ getShift : Int -> (Int -> Int)
 getShift i =
   (\n -> 8 * (3 - (and (i + n) 3)))
 
-indexLoop : Int -> Int -> Array Int -> Int -> Array Int -> Array Int
+indexLoop : Int -> Int -> Array Int -> Int -> Array Int -> (Int, Array Int)
 indexLoop i index message length blocks =
   if i > 64 || index >= length then
-    blocks
+    (i, blocks)
   else
     let code = (get index message)
         shift = getShift i
@@ -140,43 +153,57 @@ hash message is224 =
              , h6 = 0x1f83d9ab
              , h7 = 0x5be0cd19
              }
-      blocks = Array.repeat 16 0
+      block = 0
       i = 0
+      bytes = 0
       index = 0
       msgArray = Array.fromList (List.map Char.toCode (String.toList message))
   in
-      outerLoop hs blocks i index msgArray (String.length message)
+      outerLoop hs block i bytes index msgArray (Array.length msgArray)
 
-outerLoop : HS -> Array Int -> Int -> Int -> Array Int -> Int -> String
-outerLoop hs blocks i index message length =
-  let blocks = indexLoop i index message length
+makeBlocks : Int -> Array Int
+makeBlocks block =
+  Array.append (Array.fromList [block]) (Array.repeat 16 0)
+
+jLoop1 : Int -> (Array Int) -> (Array Int)
+jLoop1 j blocks =
+  let t1 = get (j-15) blocks
+      s0 = or (shiftRightLogical t1 7) (shiftLeft t1 25)
+             |> logxor (or (shiftRightLogical t1 18)
+                               (shiftLeft t1 14))
+             |> logxor (shiftRightLogical t1 3)
+      t2 = get (j-2) blocks
+      s1 = or (shiftRightLogical t2 17) (shiftLeft t2 25)
+             |> logxor (or (shiftRightLogical t1 18)
+                       (shiftLeft t1 14))
+             |> logxor (shiftRightLogical t1 10)
+      blocks = Array.set
+                 j
+                 (shiftLeft ((get (j-16) blocks) +
+                               s0 +
+                               (get (j-7) blocks) +
+                               s1)
+                    0)
+                 blocks
   in
-      "foo"
+      if j >= 63 then
+        blocks
+      else
+        jLoop1 (j+1) blocks
 
+jLoop2 : Int -> HS -> (Array Int) -> HS
+jLoop2 j hs blocks =
+  hs
 {-
-                               bytes += i - start;
-                               start = i - 64;
-                               if (index == length) {
-                                     blocks[i >> 2] |= EXTRA[i & 3];
-                                       ++index;
-                                 }
-                               block = blocks[16];
-                               if (index > length && i < 56) {
-                                     blocks[15] = bytes << 3;
-                                       end = true;
-                                 }
-                               
-                               var a = h0, b = h1, c = h2, d = h3, e = h4, f = h5, g = h6, h = h7;
-                               for (j = 16;j < 64;++j) {
-                                     // rightrotate
-                                       t1 = blocks[j - 15];
-                                       s0 = ((t1 >>> 7) | (t1 << 25)) ^ ((t1 >>> 18) | (t1 << 14)) ^ (t1 >>> 3);
-                                       t1 = blocks[j - 2];
-                                       s1 = ((t1 >>> 17) | (t1 << 15)) ^ ((t1 >>> 19) | (t1 << 13)) ^ (t1 >>> 10);
-                                       blocks[j] = blocks[j - 16] + s0 + blocks[j - 7] + s1 << 0;
-                                 }
-                               
-                               bc = b & c;
+              a = hs.h0
+              b = hs.h1
+              c = hs.h2
+              d = hs.h3
+              e = hs.h4
+              f = hs.h5
+              g = hs.h6
+              h = hs.h7
+                  bc = and b c
                                for (j = 0;j < 64;j += 4) {
                                      if (first) {
                                            if (is224) {
@@ -239,8 +266,35 @@ outerLoop hs blocks i index message length =
       h5 = h5 + f << 0;
       h6 = h6 + g << 0;
       h7 = h7 + h << 0;
-    } while (!end);
+-}
 
+outerLoop : HS -> Int -> Int -> Int -> Int -> Array Int -> Int -> String
+outerLoop hs block i bytes index message length =
+  let (i, blocks) = indexLoop i index message length (makeBlocks block)
+      bytes = bytes + i - start
+      start = i - 64
+  in
+      let (blocks, index) =
+            if (index == length) then
+              ( orIntoArray (shiftRight i 2) (getAt (and i 3) extra) blocks
+              , index + 1)
+            else
+              (blocks, index)
+          block = get 16 blocks
+      in
+          let (end, blocks) = if index > length && i < 56 then
+                                (True, Array.set 15 (shiftLeft bytes 3) blocks)
+                              else
+                                (False, blocks)
+          in
+              let blocks = jLoop1 16 blocks
+                  hs = jLoop2 0 hs blocks
+              in
+                  if not end then
+                    outerLoop hs block i bytes index message length
+                  else
+                    "foo"
+{-
     var hex = HEX_CHARS[(h0 >> 28) & 0x0F] + HEX_CHARS[(h0 >> 24) & 0x0F] +
               HEX_CHARS[(h0 >> 20) & 0x0F] + HEX_CHARS[(h0 >> 16) & 0x0F] +
               HEX_CHARS[(h0 >> 12) & 0x0F] + HEX_CHARS[(h0 >> 8) & 0x0F] +
