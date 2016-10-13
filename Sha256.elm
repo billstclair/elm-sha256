@@ -135,7 +135,7 @@ makeBlocks : Int -> Blocks
 makeBlocks block =
   Array.append (Array.fromList [block]) (Array.repeat 16 0)
     
-jLoop1 : Int -> Blocks -> (Int, Int, Blocks) --(s0, s1, blocks)
+jLoop1 : Int -> Blocks -> Blocks
 jLoop1 j blocks =
   let t1 = get (j-15) blocks
       t2 = get (j-2) blocks
@@ -157,7 +157,7 @@ jLoop1 j blocks =
       if j < 63 then
         jLoop1 (j+1) blocks2
       else
-        (s0, s1, blocks2)
+        blocks2
 
 jLoopBody2 : Int -> Int -> HS -> Blocks -> HS
 jLoopBody2 j ab hs blocks =
@@ -281,12 +281,11 @@ outerLoop hs block start bytes index is224 message length =
         else
           (blocks2, index2)
       block2 = get 16 blocks2
-      (end, blocks3) = if index > length && i < 56 then
+      (end, blocks3) = if index3 > length && i < 56 then
                          (True, Array.set 15 (bytes2 ~<< 3) blocks2)
                        else
                          (False, blocks)
-      (s0, s1, blocks4) = jLoop1 16 blocks3
-      bc = hs.b ~& hs.c
+      blocks4 = jLoop1 16 blocks3
       first = True
       hs2 = jLoop2 0 first is224 hs blocks4
       hs3 = sumHS hs hs2
