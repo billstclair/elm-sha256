@@ -1,4 +1,5 @@
-import PureSha256 exposing (sha256, sha224)
+import Sha256 exposing (sha256, sha224)
+import NativeSha256 as N
 
 import Html exposing (Html, div, p, text)
 import Html.Attributes exposing (style)
@@ -22,24 +23,27 @@ nbsp = stringFromCode 160   -- \u00A0
 br : Html a
 br = Html.br [] []
 
-render : String -> String -> String -> Html a
-render string hashName hash =
+render : String -> String -> String -> String -> Html a
+render string hashName hash nativeHash =
   div [ style [ ("font-family", "'Courier New', Courier, monospace") ] ]
-    [ text (hashName ++ "(\"" ++ string ++ "\") = ")
+    [ text (hashName ++ "(\"" ++ string ++ "\")")
     , br
-    , text (nbsp ++ nbsp ++ "\"" ++ hash ++ "\"")
+    , text (nbsp ++ nbsp ++ nbsp ++ nbsp ++
+              "   Elm: \"" ++ hash ++ "\"")
     , br
+    , text (nbsp ++ nbsp ++
+              "Native: \"" ++ nativeHash ++ "\"")
     ]
 
 render256 : String -> Html a
 render256 string =
   -- ** Don't blink, here's the sha256 call. **
-  render string "sha256" (sha256 string)
+  render string "sha256" (sha256 string) (N.sha256 string)
 
 render224 : String -> Html a
 render224 string =
   -- ** Don't blink, here's the sha224 call. **
-  render string "sha224" (sha224 string)
+  render string "sha224" (sha224 string) (N.sha224 string)
 
 main =
   div []
