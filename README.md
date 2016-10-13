@@ -6,13 +6,17 @@ Thank you to Yi-Cyuan Chen for the JavaScript ([github.com/emn178/js-sha256](htt
 
 It's as simple as:
 
-    import Sha256 exposing (sha256)
+```
+import Sha256 exposing (sha256)
 
-    hash = sha256("foo")
+hash = sha256("foo")
+```
 
-`example/example.elm` contains a simple example. To run it:
+`example/example.elm` contains an example comparing the pure Elm code to a native module. To run it:
 
-    cd .../elm-sha256/example
-    elm-reactor
+```
+cd .../elm-sha256/example
+elm-reactor
+```
 
 Then aim your browser at [localhost:8000/example.elm](http://localhost:8000/example.elm).
