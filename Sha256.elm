@@ -133,7 +133,7 @@ type alias HS =
 {-|-}
 makeBlocks : Int -> Blocks
 makeBlocks block =
-  Array.append (Array.fromList [block]) (Array.repeat 16 0)
+  Array.set 0 block (Array.repeat 64 0)
     
 jLoop1 : Int -> Blocks -> Blocks
 jLoop1 j blocks =
@@ -143,8 +143,8 @@ jLoop1 j blocks =
          ~^ ((t1 ~>>> 18) ~| (t1 ~<< 14))
          ~^ (t1 ~>>> 3)
       s1 =  ((t2 ~>>> 17) ~| (t2 ~<< 15))
-         ~^ ((t1 ~>>> 19) ~| (t1 ~<< 13))
-         ~^ (t1 ~>>> 10)
+         ~^ ((t2 ~>>> 19) ~| (t2 ~<< 13))
+         ~^ (t2 ~>>> 10)
       blocks2 = Array.set
                   j
                   (((get (j-16) blocks)
@@ -249,11 +249,12 @@ jLoop2 j first is224 hs blocks =
               )
       hs2 = { hs | h = h, d = d }
       hs3 = jLoopBody2 j ab hs2 blocks
+
+      first2 = False
+      jp4 = j + 4
   in
-      if j < 63 then
-        let first2 = False
-        in
-            jLoop2 (j+4) first2 is224 hs3 blocks
+      if jp4 < 64 then
+        jLoop2 jp4 first2 is224 hs3 blocks
       else
         hs3
 
