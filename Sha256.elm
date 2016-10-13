@@ -81,43 +81,40 @@ indexLoop i index message length blocks =
   else
     let code = (get index message)
         shift = getShift i
+        (iInc, idxInc, val) =
+          if code < 0x80 then
+            ( 1
+            , 0
+            , code ~<< (shift 0)
+            )
+          else if code < 0x800 then
+            ( 2
+            , 0
+            ,  ((0xc0 ~| (code ~>> 6)) ~<< (shift 0))
+            ~| ((0x80 ~| (code ~& 0x3f)) ~<< (shift 1))
+            )
+          else if code < 0xd800 || code >= 0xe000 then
+            ( 3
+            , 0
+            ,  ((0xe0 ~| (code ~>> 12)) ~<< (shift 0))
+            ~| ((0x80 ~| ((code ~>> 6) ~& 0x3f)) ~<< (shift 1))
+            ~| ((0x80 ~| (code ~& 0x3f)) ~<< (shift 2))
+            )
+          else
+            ( 4
+            , 1
+            , let code2 = 0x10000
+                        + (((code ~& 0x3ff) ~<< 10)
+                        ~| ((get (index+1) message) ~& 0x3ff))
+              in
+                  ((0xf0 ~| (code2 ~>> 18)) ~<< (shift 0))
+               ~| ((0x80 ~| ((code2 ~>> 12) ~& 0x3f)) ~<< (shift 1))
+               ~| ((0x80 ~| ((code2 ~>> 6) ~& 0x3f)) ~<< (shift 2))
+               ~| ((0x80 ~| (code2 ~& 0x3f)) ~<< (shift 3))
+            )
+        blocks2 = orIntoBlocks (i ~>> 2) val blocks
     in
-        let (iInc, idxInc, val) =
-              if code < 0x80 then
-                ( 1
-                , 0
-                , code ~<< (shift 0)
-                )
-              else if code < 0x800 then
-                ( 2
-                , 0
-                ,    ((0xc0 ~| (code ~>> 6)) ~<< (shift 0))
-                  ~| ((0x80 ~| (code ~& 0x3f)) ~<< (shift 1))
-                )
-              else if code < 0xd800 || code >= 0xe000 then
-                ( 3
-                , 0
-                ,    ((0xe0 ~| (code ~>> 12)) ~<< (shift 0))
-                  ~| ((0x80 ~| ((code ~>> 6) ~& 0x3f)) ~<< (shift 1))
-                  ~| ((0x80 ~| (code ~& 0x3f)) ~<< (shift 2))
-                )
-              else
-                ( 4
-                , 1
-                , let code2 = (+) 0x10000
-                                  (   ((code ~& 0x3ff) ~<< 10)
-                                   ~| ((get (index+1) message) ~& 0x3ff))
-                  in
-                         ((0xf0 ~| (code2 ~>> 18)) ~<< (shift 0))
-                      ~| ((0x80 ~| ((code2 ~>> 12) ~& 0x3f)) ~<< (shift 1))
-                      ~| ((0x80 ~| ((code2 ~>> 6) ~& 0x3f)) ~<< (shift 2))
-                      ~| ((0x80 ~| (code2 ~& 0x3f)) ~<< (shift 3))
-                )
-        in
-            let 
-                blocks2 = orIntoBlocks (i ~>> 2) val blocks
-            in
-                indexLoop (i + iInc) (index + idxInc + 1) message length blocks2
+        indexLoop (i + iInc) (index + idxInc + 1) message length blocks2
 
 -- Since I have the HS safely stored in a record,
 -- I've dispensed with the names h0, h1, ..., h7
@@ -142,27 +139,25 @@ jLoop1 : Int -> Blocks -> (Int, Int, Blocks) --(s0, s1, blocks)
 jLoop1 j blocks =
   let t1 = get (j-15) blocks
       t2 = get (j-2) blocks
+      s0 =  ((t1 ~>>> 7) ~| (t1 ~<< 25))
+         ~^ ((t1 ~>>> 18) ~| (t1 ~<< 14))
+         ~^ (t1 ~>>> 3)
+      s1 =  ((t2 ~>>> 17) ~| (t2 ~<< 25))
+         ~^ ((t1 ~>>> 18) ~| (t1 ~<< 14))
+         ~^ (t1 ~>>> 10)
+      blocks2 = Array.set
+                  j
+                  (((get (j-16) blocks)
+                  + s0
+                  + (get (j-7) blocks)
+                  + s1)
+               ~<< 0)
+                  blocks
   in
-      let s0 =  ((t1 ~>>> 7) ~| (t1 ~<< 25))
-             ~^ ((t1 ~>>> 18) ~| (t1 ~<< 14))
-             ~^ (t1 ~>>> 3)
-          s1 =  ((t2 ~>>> 17) ~| (t2 ~<< 25))
-             ~^ ((t1 ~>>> 18) ~| (t1 ~<< 14))
-             ~^ (t1 ~>>> 10)
-      in
-          let blocks2 = Array.set
-                        j
-                        (((get (j-16) blocks) +
-                           s0 +
-                           (get (j-7) blocks) +
-                           s1)
-                         ~<< 0)
-                        blocks
-          in
-              if j >= 63 then
-                (s0, s1, blocks2)
-              else
-                jLoop1 (j+1) blocks2
+      if j >= 63 then
+        (s0, s1, blocks2)
+      else
+        jLoop1 (j+1) blocks2
 
 jLoopBody2 : Int -> Int -> HS -> Blocks -> HS
 jLoopBody2 j ab hs blocks =
@@ -174,56 +169,55 @@ jLoopBody2 j ab hs blocks =
       f = hs.f
       g = hs.g
       h = hs.h
+      s0 = (d ~>>> 2) ~| (d ~>>> 30)
+      s1 =  ((h ~>>> 6) ~| (h ~<< 26))
+         ~^ ((h ~>>> 11) ~| (h ~<< 21))
+         ~^ ((h ~>>> 25) ~| (h ~<< 7))
+      da = d ~& a
+      maj = da ~^ (d ~& b) ~^ ab
+      ch = (h ~& e) ~^ ((lognot h) ~& f)
+      t1 = g + s1 + ch + (get (j+1) ks) + (get (j+1) blocks)
+      t2 = s0 + maj
+      g2 = c + t1 ~<< 0
+      c2 = t1 + t2 ~<< 0
+      s2 =  ((c2 ~>>> 2) ~| (c2 ~<< 30))
+         ~^ ((c2 ~>>> 13) ~| (c2 ~<< 19))
+         ~^ ((c2 ~>>> 22) ~| (c2 ~<< 10))
+      s3 =  ((g2 ~>>> 6) ~| (g2 ~<< 26))
+         ~^ ((g2 ~>>> 11) ~| (g2 ~<< 21))
+         ~^ ((g2 ~>>> 25) ~| (g2 ~<< 7))
+      cd = c2 ~& d
+      maj2 = cd ~^ (c2 ~& a) ~^ da
+      ch2 = (g2 ~& h) ~^ ((lognot g2) ~& e)
+      t3 = f + s3 + ch2 + (get (j+2) ks) + (get (j+2) blocks)
+      t4 = s2 + maj2
+      f2 = b + t3 ~<< 0
+      b2 = t3 + t4 ~<< 0
+      s4 =  ((b2 ~>>> 2) ~| (b2 ~<< 30))
+         ~^ ((b2 ~>>> 13) ~| (b2 ~<< 19))
+         ~^ ((b2 ~>>> 22) ~| (b2 ~<< 10))
+      s5 =  ((f2 ~>>> 6) ~| (f2 ~<< 26))
+         ~^ ((f2 ~>>> 11) ~| (f2 ~<< 21))
+         ~^ ((f2 ~>>> 25) ~| (f2 ~<< 7))
+      bc = b2 ~& c2
+      maj3 = bc ~^ (b2 ~& d) ~^ cd
+      ch3 = (f2 ~& g2) ~^ ((lognot f2) ~& h)
+      t5 = e + s5 + ch3
+         + (get (j+3) ks) + (get (j+3) blocks)
+      t6 = s4 + maj3
+      e2 = a + t5 ~<< 0
+      a2 = t5 + t6 ~<< 0
   in
-      let s0 = (d ~>>> 2) ~| (d ~>>> 30)
-          s1 =  ((h ~>>> 6) ~| (h ~<< 26))
-             ~^ ((h ~>>> 11) ~| (h ~<< 21))
-             ~^ ((h ~>>> 25) ~| (h ~<< 7))
-          da = d ~& a
-      in let maj = da ~^ (d ~& b) ~^ ab
-             ch = (h ~& e) ~^ ((lognot h) ~& f)
-          in let t1 = g + s1 + ch + (get (j+1) ks) + (get (j+1) blocks)
-                 t2 = s0 + maj
-             in let g2 = c + t1 ~<< 0
-                    c2 = t1 + t2 ~<< 0
-                in let s2 =  ((c2 ~>>> 2) ~| (c2 ~<< 30))
-                          ~^ ((c2 ~>>> 13) ~| (c2 ~<< 19))
-                          ~^ ((c2 ~>>> 22) ~| (c2 ~<< 10))
-                       s3 =  ((g2 ~>>> 6) ~| (g2 ~<< 26))
-                          ~^ ((g2 ~>>> 11) ~| (g2 ~<< 21))
-                          ~^ ((g2 ~>>> 25) ~| (g2 ~<< 7))
-                       cd = c2 ~& d
-                   in let maj = cd ~^ (c2 ~& a) ~^ da
-                          ch2 = (g2 ~& h) ~^ ((lognot g2) ~& e)
-                      in let t3 = f + s3 + ch2 + (get (j+2) ks) + (get (j+2) blocks)
-                             t4 = s2 + maj
-                         in let f2 = b + t3 ~<< 0
-                                b2 = t3 + t4 ~<< 0
-                            in let s4 =  ((b2 ~>>> 2) ~| (b2 ~<< 30))
-                                      ~^ ((b2 ~>>> 13) ~| (b2 ~<< 19))
-                                      ~^ ((b2 ~>>> 22) ~| (b2 ~<< 10))
-                                   s5 =  ((f2 ~>>> 6) ~| (f2 ~<< 26))
-                                      ~^ ((f2 ~>>> 11) ~| (f2 ~<< 21))
-                                      ~^ ((f2 ~>>> 25) ~| (f2 ~<< 7))
-                                   bc = b2 ~& c2
-                               in let maj2 = bc ~^ (b2 ~& d) ~^ cd
-                                      ch3 = (f2 ~& g2) ~^ ((lognot f2) ~& h)
-                                  in let t5 = e + s5 + ch3
-                                            + (get (j+3) ks) + (get (j+3) blocks)
-                                         t6 = s4 + maj2
-                                     in let e2 = a + t5 ~<< 0
-                                            a2 = t1 + t6 ~<< 0
-                                        in
-                                            { a = a2
-                                            , b = b2
-                                            , c = c2
-                                            , d = d
-                                            , e = e2
-                                            , f = f2
-                                            , g = g2
-                                            , h = h
-                                            }
-
+      { a = a2
+      , b = b2
+      , c = c2
+      , d = d
+      , e = e2
+      , f = f2
+      , g = g2
+      , h = h
+      }
+    
 jLoop2 : Int -> Bool -> Bool -> HS -> Blocks -> HS
 jLoop2 j first is224 hs blocks =
   let (ab, h, d) =
@@ -231,14 +225,14 @@ jLoop2 j first is224 hs blocks =
           if is224 then
             let t1 = (get 0 blocks) - 1413257819
             in
-                ( 300032    --ab
+                ( 300032                --ab
                 , (t1 - 150054599) ~<< 0 --h
                 , (t1 + 24177077) ~<< 0  --d
                 )
           else
             let t2 = (get 0 blocks) - 210244248
             in
-                ( 704751109 --ab
+                ( 704751109               --ab
                 , (t2 - 1521486534) ~<< 0 --h
                 , (t2 + 143694565) ~<< 0) --d
         else
@@ -249,73 +243,63 @@ jLoop2 j first is224 hs blocks =
                  ~^ ((hs.e ~>>> 11) ~| (hs.e ~<< 21))
                  ~^ ((hs.e ~>>> 25) ~|(hs.e ~<< 7))
               ab2 = (hs.a ~& hs.b)
+              maj = ab2 ~^ (hs.a ~& hs.c) ~^ (hs.b ~& hs.c)
+              ch = (hs.e ~& hs.f) ~^ ((lognot hs.e) ~& hs.g)
+              t3 = hs.h + s1 + ch + (get j ks) + (get j blocks)
+              t4 = s0 + maj
           in
-              let maj = ab2 ~^ (hs.a ~& hs.c) ~^ (hs.b ~& hs.c)
-                  ch = (hs.e ~& hs.f) ~^ ((lognot hs.e) ~& hs.g)
-              in
-                  let t3 = hs.h + s1 + ch + (get j ks) + (get j blocks)
-                      t4 = s0 + maj
-                  in
-                      ( ab2       --ab
-                      , (hs.d + t3) ~<< 0  --h
-                      , (t3 + t4) ~<< 0 --d
-                      )
-      in
-          let hs2 = { hs | h = h, d = d }
-          in
-              let hs3 = jLoopBody2 j ab hs2 blocks
-              in
-                  if j < 63 then
-                    let first2 = False
-                    in
-                        jLoop2 (j+4) first2 is224 hs3 blocks
-                  else
-                    hs3
+              ( ab2                --ab
+              , (hs.d + t3) ~<< 0  --h
+              , (t3 + t4) ~<< 0    --d
+              )
+      hs2 = { hs | h = h, d = d }
+      hs3 = jLoopBody2 j ab hs2 blocks
+  in
+      if j < 63 then
+        let first2 = False
+        in
+            jLoop2 (j+4) first2 is224 hs3 blocks
+      else
+        hs3
 
 sumHS : HS -> HS -> HS
 sumHS hs1 hs2 =
-  { a = (hs1.a + hs2.a) ~<< 0
-   ,b = (hs1.b + hs2.b) ~<< 0
-   ,c = (hs1.c + hs2.c) ~<< 0
-   ,d = (hs1.d + hs2.d) ~<< 0
-   ,e = (hs1.e + hs2.e) ~<< 0
-   ,f = (hs1.f + hs2.f) ~<< 0
-   ,g = (hs1.g + hs2.g) ~<< 0
-   ,h = (hs1.h + hs2.h) ~<< 0
+  { a = hs1.a + hs2.a ~<< 0
+   ,b = hs1.b + hs2.b ~<< 0
+   ,c = hs1.c + hs2.c ~<< 0
+   ,d = hs1.d + hs2.d ~<< 0
+   ,e = hs1.e + hs2.e ~<< 0
+   ,f = hs1.f + hs2.f ~<< 0
+   ,g = hs1.g + hs2.g ~<< 0
+   ,h = hs1.h + hs2.h ~<< 0
   }
 
 outerLoop : HS -> Int -> Int -> Int -> Int -> Bool -> Message -> Int -> HS
 outerLoop hs block start bytes index is224 message length =
   let (i, index2, blocks) = indexLoop start index message length (makeBlocks block)
+      bytes2 = bytes + i - start
+      start2 = i - 64
+      (blocks2, index3) =
+        if (index2 == length) then
+          ( orIntoBlocks (i ~>> 2) (getAt (i ~& 3) extra) blocks
+          , index2 + 1)
+        else
+          (blocks2, index2)
+      block2 = get 16 blocks2
+      (end, blocks3) = if index > length && i < 56 then
+                         (True, Array.set 15 (bytes2 ~<< 3) blocks2)
+                       else
+                         (False, blocks)
+      (s0, s1, blocks4) = jLoop1 16 blocks3
+      bc = hs.b ~& hs.c
+      first = True
+      hs2 = jLoop2 0 first is224 hs blocks4
+      hs3 = sumHS hs hs2
   in
-      let bytes2 = bytes + i - start
-          start2 = i - 64
-          (blocks2, index3) =
-            if (index2 == length) then
-              ( orIntoBlocks (i ~>> 2) (getAt (i ~& 3) extra) blocks
-              , index2 + 1)
-            else
-              (blocks2, index2)
-      in
-          let block2 = get 16 blocks2
-              (end, blocks3) = if index > length && i < 56 then
-                                 (True, Array.set 15 (bytes2 ~<< 3) blocks2)
-                               else
-                                 (False, blocks)
-          in
-              let (s0, s1, blocks4) = jLoop1 16 blocks3
-                  bc = hs.b ~& hs.c
-                  first = True
-              in
-                  let hs2 = jLoop2 0 first is224 hs blocks4
-                  in
-                      let hs3 = sumHS hs hs2
-                      in
-                          if end then
-                            hs3
-                          else
-                            outerLoop hs3 block2 start2 bytes2 index3 is224
-                                      message length
+      if end then
+        hs3
+      else
+        outerLoop hs3 block2 start2 bytes2 index3 is224 message length
 
 -- Convert the low 4 bits of a number to a hex character.
 {-|-}
@@ -391,22 +375,21 @@ hash string is224 =
       index = 0
       message = stringToMessage string
       length = Array.length message
+      hs2 = outerLoop hs block start bytes index is224 message length
   in
-      let hs2 = outerLoop hs block start bytes index is224 message length
-      in
-          if is224 then
-            toHex56 hs2
-          else
-            toHex64 hs2
+      if is224 then
+        toHex56 hs2
+      else
+        toHex64 hs2
 
 {-| Returns the sha256 hash of its argument.
 -}
 sha256 : String -> String
-sha256 message =
-  hash message False
+sha256 string =
+  hash string False
 
 {-| Returns the sha224 hash of its argument.
 -}
 sha224 : String -> String
-sha224 message =
-  hash message True
+sha224 string =
+  hash string True

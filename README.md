@@ -1,6 +1,6 @@
-# sha256 and sha224 cryptographic hash functions for Elm
+# sha256 and sha224 Cryptographically Secure Hash Functions for Elm
 
-A simple wrapper around some JavaScript.
+A mindless conversion of a JavaScript sha256 library to Elm.
 
 Thank you to Yi-Cyuan Chen for the JavaScript ([github.com/emn178/js-sha256](https://github.com/emn178/js-sha256)).
 
@@ -10,9 +10,9 @@ It's as simple as:
 
     hash = sha256("foo")
 
-`example.elm` contains a simple example. To run it:
+`example/example.elm` contains a simple example. To run it:
 
-    cd .../elm-sha256
+    cd .../elm-sha256/example
     elm-reactor
 
 Then aim your browser at [localhost:8000/example.elm](http://localhost:8000/example.elm).
