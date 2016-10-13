@@ -154,10 +154,10 @@ jLoop1 j blocks =
                ~<< 0)
                   blocks
   in
-      if j >= 63 then
-        (s0, s1, blocks2)
-      else
+      if j < 63 then
         jLoop1 (j+1) blocks2
+      else
+        (s0, s1, blocks2)
 
 jLoopBody2 : Int -> Int -> HS -> Blocks -> HS
 jLoopBody2 j ab hs blocks =
@@ -297,10 +297,10 @@ outerLoop hs block start bytes index is224 message length =
       hs2 = jLoop2 0 first is224 hs blocks4
       hs3 = sumHS hs hs2
   in
-      if end then
-        hs3
-      else
+      if not end then
         outerLoop hs3 block2 start2 bytes2 index3 is224 message length
+      else
+        hs3
 
 -- Convert the low 4 bits of a number to a hex character.
 {-|-}
