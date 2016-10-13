@@ -209,14 +209,8 @@ jLoopBody2 j ab hs blocks =
       e2 = a + t5 ~<< 0
       a2 = t5 + t6 ~<< 0
   in
-      { a = a2
-      , b = b2
-      , c = c2
-      , d = d
-      , e = e2
-      , f = f2
-      , g = g2
-      , h = h
+      { a = a2, b = b2, c = c2, d = d
+      , e = e2, f = f2, g = g2, h = h
       }
     
 jLoop2 : Int -> Bool -> Bool -> HS -> Blocks -> HS
@@ -346,25 +340,13 @@ initialHs : Bool -> HS
 initialHs is224 =
   if is224 then
     -- sha224
-    { a = 0xc1059ed8
-    , b = 0x367cd507
-    , c = 0x3070dd17
-    , d = 0xf70e5939
-    , e = 0xffc00b31
-    , f = 0x68581511
-    , g = 0x64f98fa7
-    , h = 0xbefa4fa4
+    { a = 0xc1059ed8, b = 0x367cd507, c = 0x3070dd17, d = 0xf70e5939
+    , e = 0xffc00b31, f = 0x68581511, g = 0x64f98fa7, h = 0xbefa4fa4
     }
   else
     -- sha256
-    { a = 0x6a09e667
-    , b = 0xbb67ae85
-    , c = 0x3c6ef372
-    , d = 0xa54ff53a
-    , e = 0x510e527f
-    , f = 0x9b05688c
-    , g = 0x1f83d9ab
-    , h = 0x5be0cd19
+    { a = 0x6a09e667, b = 0xbb67ae85, c = 0x3c6ef372, d = 0xa54ff53a
+    , e = 0x510e527f, f = 0x9b05688c, g = 0x1f83d9ab, h = 0x5be0cd19
     }
     
 hash : String -> Bool -> String
