@@ -64,9 +64,9 @@ getAt index list =
 
 -- Done with SHIFT array in JavaScript code
 -- SHIFT = [24, 16, 8, 0]
-getShift : Int -> (Int -> Int)
-getShift i =
-  (\n -> 8 * (3 - ((i + n) ~& 3)))
+getShift : Int -> Int -> Int
+getShift i n =
+  8 * (3 - ((i + n) ~& 3))
 
 type alias Message =
   Array Int
@@ -76,7 +76,7 @@ type alias Blocks =
 
 indexLoop : Int -> Int -> Message -> Int -> Blocks -> (Int, Int, Blocks)
 indexLoop i index message length blocks =
-  if i > 64 || index >= length then
+  if not (index < length && i < 64)  then
     (i, index, blocks)
   else
     let code = (get index message)
@@ -142,8 +142,8 @@ jLoop1 j blocks =
       s0 =  ((t1 ~>>> 7) ~| (t1 ~<< 25))
          ~^ ((t1 ~>>> 18) ~| (t1 ~<< 14))
          ~^ (t1 ~>>> 3)
-      s1 =  ((t2 ~>>> 17) ~| (t2 ~<< 25))
-         ~^ ((t1 ~>>> 18) ~| (t1 ~<< 14))
+      s1 =  ((t2 ~>>> 17) ~| (t2 ~<< 15))
+         ~^ ((t1 ~>>> 19) ~| (t1 ~<< 13))
          ~^ (t1 ~>>> 10)
       blocks2 = Array.set
                   j
@@ -169,7 +169,9 @@ jLoopBody2 j ab hs blocks =
       f = hs.f
       g = hs.g
       h = hs.h
-      s0 = (d ~>>> 2) ~| (d ~>>> 30)
+      s0 =  ((d ~>>> 2) ~| (d ~<< 30))
+         ~^ ((d ~>>> 13) ~| (d ~<< 19))
+         ~^ ((d ~>>> 22) ~| (d ~<< 10))
       s1 =  ((h ~>>> 6) ~| (h ~<< 26))
          ~^ ((h ~>>> 11) ~| (h ~<< 21))
          ~^ ((h ~>>> 25) ~| (h ~<< 7))
@@ -202,8 +204,7 @@ jLoopBody2 j ab hs blocks =
       bc = b2 ~& c2
       maj3 = bc ~^ (b2 ~& d) ~^ cd
       ch3 = (f2 ~& g2) ~^ ((lognot f2) ~& h)
-      t5 = e + s5 + ch3
-         + (get (j+3) ks) + (get (j+3) blocks)
+      t5 = e + s5 + ch3 + (get (j+3) ks) + (get (j+3) blocks)
       t6 = s4 + maj3
       e2 = a + t5 ~<< 0
       a2 = t5 + t6 ~<< 0
