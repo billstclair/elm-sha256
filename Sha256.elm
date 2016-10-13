@@ -271,23 +271,24 @@ sumHS hs1 hs2 =
 
 outerLoop : HS -> Int -> Int -> Int -> Int -> Bool -> Message -> Int -> HS
 outerLoop hs block start bytes index is224 message length =
-  let (i, index2, blocks) = indexLoop start index message length (makeBlocks block)
+  let blocks = makeBlocks block
+      (i, index2, blocks2) = indexLoop start index message length blocks
       bytes2 = bytes + i - start
       start2 = i - 64
-      (blocks2, index3) =
+      (blocks3, index3) =
         if (index2 == length) then
-          ( orIntoBlocks (i ~>> 2) (getAt (i ~& 3) extra) blocks
+          ( orIntoBlocks (i ~>> 2) (getAt (i ~& 3) extra) blocks2
           , index2 + 1)
         else
           (blocks2, index2)
-      block2 = get 16 blocks2
-      (end, blocks3) = if index3 > length && i < 56 then
-                         (True, Array.set 15 (bytes2 ~<< 3) blocks2)
+      block2 = get 16 blocks3
+      (end, blocks4) = if index3 > length && i < 56 then
+                         (True, Array.set 15 (bytes2 ~<< 3) blocks3)
                        else
-                         (False, blocks)
-      blocks4 = jLoop1 16 blocks3
+                         (False, blocks3)
+      blocks5 = jLoop1 16 blocks4
       first = True
-      hs2 = jLoop2 0 first is224 hs blocks4
+      hs2 = jLoop2 0 first is224 hs blocks5
       hs3 = sumHS hs hs2
   in
       if not end then
