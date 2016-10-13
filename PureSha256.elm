@@ -30,7 +30,7 @@ import String
 import Char
 import List.Extra as LE
 import Array exposing (Array)
-import Bitwise exposing (and, or)
+import Bitwise
 import Debug exposing (log)
 
 extra : List Int
@@ -49,18 +49,13 @@ ks =
     , 0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2
     ]
 
-get : Int -> Array Int -> Int
-get index array =
-  -- The default is actually an error, but I don't expect it to happen.
-  Maybe.withDefault 0 (Array.get index array)
+(~&) : Int -> Int -> Int
+(~&) x y =
+  Bitwise.and x y
 
-orIntoBlocks : Int -> Int -> Blocks -> Blocks
-orIntoBlocks idx val blocks =
-  Array.set idx (or val (get idx blocks)) blocks
-
-getAt : Int -> List Int -> Int
-getAt index list =
-  Maybe.withDefault 0 (LE.getAt index list)
+(~|) : Int -> Int -> Int
+(~|) x y =
+  Bitwise.or x y
 
 (~<<) : Int -> Int -> Int
 (~<<) x shift =
@@ -78,15 +73,28 @@ lognot : Int -> Int
 lognot x =
   Bitwise.complement x
 
-logxor : Int -> Int -> Int
-logxor x y =
+(~^) : Int -> Int -> Int
+(~^) x y =
   Bitwise.xor x y
+
+get : Int -> Array Int -> Int
+get index array =
+  -- The default is actually an error, but I don't expect it to happen.
+  Maybe.withDefault 0 (Array.get index array)
+
+orIntoBlocks : Int -> Int -> Blocks -> Blocks
+orIntoBlocks idx val blocks =
+  Array.set idx (val ~| (get idx blocks)) blocks
+
+getAt : Int -> List Int -> Int
+getAt index list =
+  Maybe.withDefault 0 (LE.getAt index list)
 
 -- Done with SHIFT array in JavaScript code
 -- SHIFT = [24, 16, 8, 0]
 getShift : Int -> (Int -> Int)
 getShift i =
-  (\n -> 8 * (3 - (and (i + n) 3)))
+  (\n -> 8 * (3 - ((i + n) ~& 3)))
 
 type alias Message =
   Array Int
@@ -111,30 +119,29 @@ indexLoop i index message length blocks =
               else if code < 0x800 then
                 ( 2
                 , 0
-                , or ((or 0xc0 (code ~>> 6)) ~<< (shift 0))
-                     ((or 0x80 (and code 0x3f)) ~<< (shift 1))
+                , ((0xc0 ~| (code ~>> 6)) ~<< (shift 0)) ~|
+                  ((0x80 ~| (code ~& 0x3f)) ~<< (shift 1))
                 )
               else if code < 0xd800 || code >= 0xe000 then
                 ( 3
                 , 0
-                , or ((or 0xe0 (code ~>> 12)) ~<< (shift 0))
-                     ( (or 0x80 (and (code ~>> 6) 0x3f)) ~<<
-                       (shift 1))
-                    |> or ((or 0x80 (and code 0x3f)) ~<< (shift 2))
+                , ((0xe0 ~| (code ~>> 12)) ~<< (shift 0)) ~|
+                  ((0x80 ~| ((code ~>> 6) ~& 0x3f)) ~<< (shift 1)) ~|
+                  ((0x80 ~| (code ~& 0x3f)) ~<< (shift 2))
                 )
               else
                 ( 4
                 , 1
                 , let code2 = (+) 0x10000
-                                  (or ((and code 0x3ff) ~<< 10)
-                                      (and (get (index+1) message) 0x3ff))
+                                  (
+                                   ((code ~& 0x3ff) ~<< 10)
+                                   ~| ((get (index+1) message) ~& 0x3ff)
+                                  )
                   in
-                      or ((or 0xf0 (code2 ~>> 18)) ~<< (shift 0))
-                         ((or 0x80 (and (code2 ~>> 12) 0x3f)) ~<<
-                          (shift 1))
-                        |> or ((or 0x80 (and (code2 ~>> 6) 0x3f)) ~<<
-                               (shift 2))
-                        |> or ((or 0x80 (and code2 0x3f)) ~<< (shift 3))
+                      ((0xf0 ~| (code2 ~>> 18)) ~<< (shift 0))
+                      ~| ((0x80 ~| ((code2 ~>> 12) ~& 0x3f)) ~<< (shift 1))
+                      ~| ((0x80 ~| ((code2 ~>> 6) ~& 0x3f)) ~<< (shift 2))
+                      ~| ((0x80 ~| (code2 ~& 0x3f)) ~<< (shift 3))
                 )
         in
             let 
@@ -165,14 +172,12 @@ jLoop1 j blocks =
   let t1 = get (j-15) blocks
       t2 = get (j-2) blocks
   in
-      let s0 = or (t1 ~>>> 7) (t1 ~<< 25)
-                 |> logxor (or (t1 ~>>> 18)
-                               (t1 ~<< 14))
-                 |> logxor (t1 ~>>> 3)
-          s1 = or (t2 ~>>> 17) (t2 ~<< 25)
-                 |> logxor (or (t1 ~>>> 18)
-                               (t1 ~<< 14))
-                 |> logxor (t1 ~>>> 10)
+      let s0 =    ((t1 ~>>> 7) ~| (t1 ~<< 25))
+               ~^ ((t1 ~>>> 18) ~| (t1 ~<< 14))
+               ~^ (t1 ~>>> 3)
+          s1 =    ((t2 ~>>> 17) ~| (t2 ~<< 25))
+               ~^ ((t1 ~>>> 18) ~| (t1 ~<< 14))
+               ~^ (t1 ~>>> 10)
       in
           let blocks2 = Array.set
                         j
@@ -199,7 +204,7 @@ jLoopBody2 j ab hs blocks =
       g = hs.g
       h = hs.h
   in
-      let s0 = or (d ~>>> 2) (d ~>>> 30)
+      let s0 = (d ~>>> 2) ~| (d ~>>> 30)
       in
           hs
   {-
@@ -250,18 +255,16 @@ jLoop2 j first is224 hs blocks =
                 , (t2 - 1521486534) ~<< 0 --h
                 , (t2 + 143694565) ~<< 0) --d
         else
-          let s0 =
-                or (hs.a ~>>> 2) (hs.a ~<< 30)
-                  |> logxor (or (hs.a ~>>> 13) (hs.a ~<< 19))
-                  |> logxor (or (hs.a ~>>> 22) (hs.a ~<< 10))
-              s1 =
-                or (hs.e ~>>> 6) (hs.e ~<< 26)
-                  |> logxor (or (hs.e ~>>> 11) (hs.e ~<< 21))
-                  |> logxor (or (hs.e ~>>> 25) (hs.e ~<< 7))
-              ab2 = (and hs.a hs.b)
+          let s0 = ((hs.a ~>>>  2) ~| (hs.a ~<< 30))
+                ~^ ((hs.a ~>>> 13) ~| (hs.a ~<< 19))
+                ~^ ((hs.a ~>>> 22) ~| (hs.a ~<< 10))
+              s1 = ((hs.e ~>>> 6) ~| (hs.e ~<< 26))
+                ~^ ((hs.e ~>>> 11) ~| (hs.e ~<< 21))
+                ~^ ((hs.e ~>>> 25) ~|(hs.e ~<< 7))
+              ab2 = (hs.a ~& hs.b)
           in
-              let maj = ab2 |> logxor (and hs.a hs.c) |> logxor (and hs.b hs.c)
-                  ch = logxor (and hs.e hs.f) (and (lognot hs.e) hs.g)
+              let maj = ab2 ~^ (hs.a ~& hs.c) ~^ (hs.b ~& hs.c)
+                  ch = (hs.e ~& hs.f) ~^ ((lognot hs.e) ~& hs.g)
               in
                   let t3 = hs.h + s1 + ch + (get j ks) + (get j blocks)
                       t4 = s0 + maj
@@ -302,7 +305,7 @@ outerLoop hs block start bytes index is224 message length =
           start2 = i - 64
           (blocks2, index3) =
             if (index2 == length) then
-              ( orIntoBlocks (i ~>> 2) (getAt (and i 3) extra) blocks
+              ( orIntoBlocks (i ~>> 2) (getAt (i ~& 3) extra) blocks
               , index2 + 1)
             else
               (blocks2, index2)
@@ -314,7 +317,7 @@ outerLoop hs block start bytes index is224 message length =
                                  (False, blocks)
           in
               let (s0, s1, blocks4) = jLoop1 16 blocks3
-                  bc = and hs.b hs.c
+                  bc = hs.b ~& hs.c
                   first = True
               in
                   let hs2 = jLoop2 0 first is224 hs blocks4
@@ -330,7 +333,7 @@ outerLoop hs block start bytes index is224 message length =
 -- Convert the low 4 bits of a number to a hex character.
 toHex1 : Int -> Char
 toHex1 x =
-  let x2 = (and x 0xf)
+  let x2 = (x ~& 0xf)
   in
       Char.fromCode (x2 + (if x2 < 10
                            then Char.toCode('0')
