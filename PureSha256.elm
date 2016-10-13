@@ -1,6 +1,6 @@
 ----------------------------------------------------------------------
 --
--- sha256.elm
+-- Sha256.elm
 -- sha256 & sha224 for Elm
 -- Copyright (c) 2016 Bill St. Clair <billstclair@gmail.com>
 -- Some rights reserved.
@@ -30,7 +30,7 @@ import String
 import Char
 import List.Extra as LE
 import Array exposing (Array)
-import Bitwise
+import BitwiseInfix exposing (..)
 import Debug exposing (log)
 
 extra : List Int
@@ -48,34 +48,6 @@ ks =
     , 0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3
     , 0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2
     ]
-
-(~&) : Int -> Int -> Int
-(~&) x y =
-  Bitwise.and x y
-
-(~|) : Int -> Int -> Int
-(~|) x y =
-  Bitwise.or x y
-
-(~<<) : Int -> Int -> Int
-(~<<) x shift =
-  Bitwise.shiftLeft x shift
-
-(~>>) : Int -> Int -> Int
-(~>>) x shift =
-  Bitwise.shiftRight x shift
-
-(~>>>) : Int -> Int -> Int
-(~>>>) x shift =
-  Bitwise.shiftRightLogical x shift
-
-lognot : Int -> Int
-lognot x =
-  Bitwise.complement x
-
-(~^) : Int -> Int -> Int
-(~^) x y =
-  Bitwise.xor x y
 
 get : Int -> Array Int -> Int
 get index array =
@@ -119,26 +91,24 @@ indexLoop i index message length blocks =
               else if code < 0x800 then
                 ( 2
                 , 0
-                , ((0xc0 ~| (code ~>> 6)) ~<< (shift 0)) ~|
-                  ((0x80 ~| (code ~& 0x3f)) ~<< (shift 1))
+                ,    ((0xc0 ~| (code ~>> 6)) ~<< (shift 0))
+                  ~| ((0x80 ~| (code ~& 0x3f)) ~<< (shift 1))
                 )
               else if code < 0xd800 || code >= 0xe000 then
                 ( 3
                 , 0
-                , ((0xe0 ~| (code ~>> 12)) ~<< (shift 0)) ~|
-                  ((0x80 ~| ((code ~>> 6) ~& 0x3f)) ~<< (shift 1)) ~|
-                  ((0x80 ~| (code ~& 0x3f)) ~<< (shift 2))
+                ,    ((0xe0 ~| (code ~>> 12)) ~<< (shift 0))
+                  ~| ((0x80 ~| ((code ~>> 6) ~& 0x3f)) ~<< (shift 1))
+                  ~| ((0x80 ~| (code ~& 0x3f)) ~<< (shift 2))
                 )
               else
                 ( 4
                 , 1
                 , let code2 = (+) 0x10000
-                                  (
-                                   ((code ~& 0x3ff) ~<< 10)
-                                   ~| ((get (index+1) message) ~& 0x3ff)
-                                  )
+                                  (   ((code ~& 0x3ff) ~<< 10)
+                                   ~| ((get (index+1) message) ~& 0x3ff))
                   in
-                      ((0xf0 ~| (code2 ~>> 18)) ~<< (shift 0))
+                         ((0xf0 ~| (code2 ~>> 18)) ~<< (shift 0))
                       ~| ((0x80 ~| ((code2 ~>> 12) ~& 0x3f)) ~<< (shift 1))
                       ~| ((0x80 ~| ((code2 ~>> 6) ~& 0x3f)) ~<< (shift 2))
                       ~| ((0x80 ~| (code2 ~& 0x3f)) ~<< (shift 3))
