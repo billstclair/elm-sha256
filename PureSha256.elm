@@ -119,9 +119,9 @@ indexLoop i index message length blocks =
                 )
         in
             let 
-                blocks = orIntoArray (shiftRight i 2) val blocks
+                blocks2 = orIntoArray (shiftRight i 2) val blocks
             in
-                indexLoop (i + iInc) (index + idxInc + 1) message length blocks
+                indexLoop (i + iInc) (index + idxInc + 1) message length blocks2
 
 type alias HS =
   { h0 : Int
@@ -152,19 +152,19 @@ jLoop1 j blocks =
                                (shiftLeft t1 14))
                  |> logxor (shiftRightLogical t1 10)
       in
-          let blocks = Array.set
-                       j
-                       (shiftLeft ((get (j-16) blocks) +
-                                     s0 +
-                                     (get (j-7) blocks) +
-                                     s1)
-                          0)
-                         blocks
+          let blocks2 = Array.set
+                        j
+                        (shiftLeft ((get (j-16) blocks) +
+                                    s0 +
+                                    (get (j-7) blocks) +
+                                    s1)
+                                   0)
+                        blocks
           in
               if j >= 63 then
-                blocks
+                blocks2
               else
-                jLoop1 (j+1) blocks
+                jLoop1 (j+1) blocks2
 
 jLoop2 : Int -> HS -> (Array Int) -> HS
 jLoop2 j hs blocks =
@@ -245,40 +245,40 @@ jLoop2 j hs blocks =
 
 outerLoop : HS -> Int -> Int -> Int -> Int -> Array Int -> Int -> HS
 outerLoop hs block start bytes index message length =
-  let (i, index, blocks) = indexLoop start index message length (makeBlocks block)
+  let (i, index2, blocks) = indexLoop start index message length (makeBlocks block)
   in
-      let bytes = bytes + i - start
-          start = i - 64
-          (blocks, index) =
-            if (index == length) then
+      let bytes2 = bytes + i - start
+          start2 = i - 64
+          (blocks2, index3) =
+            if (index2 == length) then
               ( orIntoArray (shiftRight i 2) (getAt (and i 3) extra) blocks
-              , index + 1)
+              , index2 + 1)
             else
-              (blocks, index)
+              (blocks2, index2)
       in
-          let block = get 16 blocks
-              (end, blocks) = if index > length && i < 56 then
-                                (True, Array.set 15 (shiftLeft bytes 3) blocks)
-                              else
-                                (False, blocks)
+          let block2 = get 16 blocks2
+              (end, blocks3) = if index > length && i < 56 then
+                                 (True, Array.set 15 (shiftLeft bytes2 3) blocks2)
+                               else
+                                 (False, blocks)
           in
-              let blocks = jLoop1 16 blocks
+              let blocks4 = jLoop1 16 blocks3
               in
-                  let hs = jLoop2 0 hs blocks
+                  let hs2 = jLoop2 0 hs blocks4
                   in
                       if end then
-                        hs
+                        hs2
                       else
-                        outerLoop hs block start bytes index message length
+                        outerLoop hs2 block2 start2 bytes2 index3 message length
 
 -- Convert the low 4 bits of a number to a hex character.
 toHex1 : Int -> Char
 toHex1 x =
-  let x = (and x 0xf)
+  let x2 = (and x 0xf)
   in
-      Char.fromCode (x + (if x < 10
-                          then Char.toCode('0')
-                          else (-10 + Char.toCode('a'))))
+      Char.fromCode (x2 + (if x2 < 10
+                           then Char.toCode('0')
+                           else (-10 + Char.toCode('a'))))
 
 -- Convert the low 32 bits of an integer to a 4-character hex string.
 toHex8 : Int -> String
@@ -331,21 +331,21 @@ initialHs is224 =
     }
     
 hash : String -> Bool -> String
-hash message is224 =
+hash string is224 =
   let hs = initialHs is224
       block = 0
       start = 0
       bytes = 0
       index = 0
-      msgArray = stringToCodes message
-      length = String.length message
+      message = stringToCodes string
+      length = Array.length message
   in
-      let hs = outerLoop hs block start bytes index msgArray length
+      let hs2 = outerLoop hs block start bytes index message length
       in
           if is224 then
-            toHex56 hs
+            toHex56 hs2
           else
-            toHex64 hs
+            toHex64 hs2
 
 {-| Returns the sha256 hash of its argument.
 -}

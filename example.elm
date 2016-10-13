@@ -14,7 +14,7 @@ strings =
 
 stringFromCode : Int -> String
 stringFromCode code =
-  String.cons (Char.fromCode code) ""
+  String.fromList [(Char.fromCode code)]
 
 nbsp : String
 nbsp = stringFromCode 160   -- \u00A0
