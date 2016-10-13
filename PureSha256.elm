@@ -30,8 +30,7 @@ import String
 import Char
 import List.Extra as LE
 import Array exposing (Array)
-import Bitwise exposing
-  (and, or, shiftLeft, shiftRight, shiftRightLogical, complement)
+import Bitwise exposing (and, or)
 import Debug exposing (log)
 
 extra : List Int
@@ -63,6 +62,22 @@ getAt : Int -> List Int -> Int
 getAt index list =
   Maybe.withDefault 0 (LE.getAt index list)
 
+(~<<) : Int -> Int -> Int
+(~<<) x shift =
+  Bitwise.shiftLeft x shift
+
+(~>>) : Int -> Int -> Int
+(~>>) x shift =
+  Bitwise.shiftRight x shift
+
+(~>>>) : Int -> Int -> Int
+(~>>>) x shift =
+  Bitwise.shiftRightLogical x shift
+
+lognot : Int -> Int
+lognot x =
+  Bitwise.complement x
+
 logxor : Int -> Int -> Int
 logxor x y =
   Bitwise.xor x y
@@ -91,42 +106,39 @@ indexLoop i index message length blocks =
               if code < 0x80 then
                 ( 1
                 , 0
-                , shiftLeft code (shift 0)
+                , code ~<< (shift 0)
                 )
               else if code < 0x800 then
                 ( 2
                 , 0
-                , or (shiftLeft (or 0xc0 (shiftRight code 6)) (shift 0))
-                     (shiftLeft (or 0x80 (and code 0x3f)) (shift 1))
+                , or ((or 0xc0 (code ~>> 6)) ~<< (shift 0))
+                     ((or 0x80 (and code 0x3f)) ~<< (shift 1))
                 )
               else if code < 0xd800 || code >= 0xe000 then
                 ( 3
                 , 0
-                , or (shiftLeft (or 0xe0 (shiftRight code 12)) (shift 0))
-                     (shiftLeft
-                        (or 0x80 (and (shiftRight code 6) 0x3f))
-                        (shift 1))
-                    |> or (shiftLeft (or 0x80 (and code 0x3f)) (shift 2))
+                , or ((or 0xe0 (code ~>> 12)) ~<< (shift 0))
+                     ( (or 0x80 (and (code ~>> 6) 0x3f)) ~<<
+                       (shift 1))
+                    |> or ((or 0x80 (and code 0x3f)) ~<< (shift 2))
                 )
               else
                 ( 4
                 , 1
                 , let code2 = (+) 0x10000
-                                  (or (shiftLeft (and code 0x3ff) 10)
+                                  (or ((and code 0x3ff) ~<< 10)
                                       (and (get (index+1) message) 0x3ff))
                   in
-                      or (shiftLeft (or 0xf0 (shiftRight code2 18)) (shift 0))
-                         (shiftLeft
-                            (or 0x80 (and (shiftRight code2 12) 0x3f))
-                            (shift 1))
-                        |> or (shiftLeft
-                                 (or 0x80 (and (shiftRight code2 6) 0x3f))
-                                 (shift 2))
-                        |> or (shiftLeft (or 0x80 (and code2 0x3f)) (shift 3))
+                      or ((or 0xf0 (code2 ~>> 18)) ~<< (shift 0))
+                         ((or 0x80 (and (code2 ~>> 12) 0x3f)) ~<<
+                          (shift 1))
+                        |> or ((or 0x80 (and (code2 ~>> 6) 0x3f)) ~<<
+                               (shift 2))
+                        |> or ((or 0x80 (and code2 0x3f)) ~<< (shift 3))
                 )
         in
             let 
-                blocks2 = orIntoBlocks (shiftRight i 2) val blocks
+                blocks2 = orIntoBlocks (i ~>> 2) val blocks
             in
                 indexLoop (i + iInc) (index + idxInc + 1) message length blocks2
 
@@ -153,22 +165,22 @@ jLoop1 j blocks =
   let t1 = get (j-15) blocks
       t2 = get (j-2) blocks
   in
-      let s0 = or (shiftRightLogical t1 7) (shiftLeft t1 25)
-                 |> logxor (or (shiftRightLogical t1 18)
-                               (shiftLeft t1 14))
-                 |> logxor (shiftRightLogical t1 3)
-          s1 = or (shiftRightLogical t2 17) (shiftLeft t2 25)
-                 |> logxor (or (shiftRightLogical t1 18)
-                               (shiftLeft t1 14))
-                 |> logxor (shiftRightLogical t1 10)
+      let s0 = or (t1 ~>>> 7) (t1 ~<< 25)
+                 |> logxor (or (t1 ~>>> 18)
+                               (t1 ~<< 14))
+                 |> logxor (t1 ~>>> 3)
+          s1 = or (t2 ~>>> 17) (t2 ~<< 25)
+                 |> logxor (or (t1 ~>>> 18)
+                               (t1 ~<< 14))
+                 |> logxor (t1 ~>>> 10)
       in
           let blocks2 = Array.set
                         j
-                        (shiftLeft ((get (j-16) blocks) +
-                                    s0 +
-                                    (get (j-7) blocks) +
-                                    s1)
-                                   0)
+                        (((get (j-16) blocks) +
+                           s0 +
+                           (get (j-7) blocks) +
+                           s1)
+                         ~<< 0)
                         blocks
           in
               if j >= 63 then
@@ -176,10 +188,20 @@ jLoop1 j blocks =
               else
                 jLoop1 (j+1) blocks2
 
-jLoopBody2 : Int -> HS -> Blocks -> HS
-jLoopBody2 j hs2 blocks =
-  hs2
-
+jLoopBody2 : Int -> Int -> HS -> Blocks -> HS
+jLoopBody2 j ab hs blocks =
+  let a = hs.a
+      b = hs.b
+      c = hs.c
+      d = hs.d
+      e = hs.e
+      f = hs.f
+      g = hs.g
+      h = hs.h
+  in
+      let s0 = or (d ~>>> 2) (d ~>>> 30)
+      in
+          hs
   {-
         s0 = ((d >>> 2) | (d << 30)) ^ ((d >>> 13) | (d << 19)) ^ ((d >>> 22) | (d << 10));
         s1 = ((h >>> 6) | (h << 26)) ^ ((h >>> 11) | (h << 21)) ^ ((h >>> 25) | (h << 7));
@@ -212,81 +234,64 @@ jLoopBody2 j hs2 blocks =
 
 jLoop2 : Int -> Bool -> Bool -> HS -> Blocks -> HS
 jLoop2 j first is224 hs blocks =
-  let
-    -- h & d are intentionally missing here
-    a = hs.a
-    b = hs.b
-    c = hs.c
-    e = hs.e
-    f = hs.f
-    g = hs.g
-  in
-      let (ab, h, d) =
-            if first then
-              if is224 then
-                let t1 = (get 0 blocks) - 1413257819
-                in
-                    ( 300032    --ab
-                    , shiftLeft (t1 - 150054599) 0 --h
-                    , shiftLeft (t1 + 24177077) 0  --d
-                    )
-              else
-                let t2 = (get 0 blocks) - 210244248
-                in
-                    ( 704751109 --ab
-                    , shiftLeft (t2 - 1521486534) 0 --h
-                    , shiftLeft (t2 + 143694565) 0) --d
-            else
-              let s0 =
-                    or (shiftRightLogical a 2) (shiftLeft a 30)
-                      |> logxor (or (shiftRightLogical a 13) (shiftLeft a 19))
-                      |> logxor (or (shiftRightLogical a 22) (shiftLeft a 10))
-                  s1 =
-                    or (shiftRightLogical e 6) (shiftLeft e 26)
-                      |> logxor (or (shiftRightLogical e 11) (shiftLeft e 21))
-                      |> logxor (or (shiftRightLogical e 25) (shiftLeft e 7))
-                  ab2 = (and a b)
-              in
-                  let maj = ab2 |> logxor (and a c) |> logxor (and b c)
-                      ch = logxor (and e f) (and (complement e) g)
-                  in
-                      let t3 = hs.h + s1 + ch + (get j ks) + (get j blocks)
-                          t4 = s0 + maj
-                      in
-                          ( ab2       --ab
-                          , shiftLeft (hs.d + t3) 0  --h
-                          , shiftLeft (t3 + t4) 0 --d
-                          )
-      in
-          let hs2 = { a = a
-                    , b = b
-                    , c = c
-                    , d = d
-                    , e = e
-                    , f = f
-                    , g = g
-                    , h = h
-                    }
+  let (ab, h, d) =
+        if first then
+          if is224 then
+            let t1 = (get 0 blocks) - 1413257819
+            in
+                ( 300032    --ab
+                , (t1 - 150054599) ~<< 0 --h
+                , (t1 + 24177077) ~<< 0  --d
+                )
+          else
+            let t2 = (get 0 blocks) - 210244248
+            in
+                ( 704751109 --ab
+                , (t2 - 1521486534) ~<< 0 --h
+                , (t2 + 143694565) ~<< 0) --d
+        else
+          let s0 =
+                or (hs.a ~>>> 2) (hs.a ~<< 30)
+                  |> logxor (or (hs.a ~>>> 13) (hs.a ~<< 19))
+                  |> logxor (or (hs.a ~>>> 22) (hs.a ~<< 10))
+              s1 =
+                or (hs.e ~>>> 6) (hs.e ~<< 26)
+                  |> logxor (or (hs.e ~>>> 11) (hs.e ~<< 21))
+                  |> logxor (or (hs.e ~>>> 25) (hs.e ~<< 7))
+              ab2 = (and hs.a hs.b)
           in
-              let hs3 = jLoopBody2 j hs2 blocks
+              let maj = ab2 |> logxor (and hs.a hs.c) |> logxor (and hs.b hs.c)
+                  ch = logxor (and hs.e hs.f) (and (lognot hs.e) hs.g)
+              in
+                  let t3 = hs.h + s1 + ch + (get j ks) + (get j blocks)
+                      t4 = s0 + maj
+                  in
+                      ( ab2       --ab
+                      , (hs.d + t3) ~<< 0  --h
+                      , (t3 + t4) ~<< 0 --d
+                      )
+      in
+          let hs2 = { hs | h = h, d = d }
+          in
+              let hs3 = jLoopBody2 j ab hs2 blocks
               in
                   if j < 63 then
                     let first2 = False
                     in
-                        jLoop2 (j+4) first2 is224 hs2 blocks
+                        jLoop2 (j+4) first2 is224 hs3 blocks
                   else
-                    hs2
+                    hs3
 
 sumHS : HS -> HS -> HS
 sumHS hs1 hs2 =
-  { a = shiftLeft (hs1.a + hs2.a) 0
-   ,b = shiftLeft (hs1.b + hs2.b) 0
-   ,c = shiftLeft (hs1.c + hs2.c) 0
-   ,d = shiftLeft (hs1.d + hs2.d) 0
-   ,e = shiftLeft (hs1.e + hs2.e) 0
-   ,f = shiftLeft (hs1.f + hs2.f) 0
-   ,g = shiftLeft (hs1.g + hs2.g) 0
-   ,h = shiftLeft (hs1.h + hs2.h) 0
+  { a = (hs1.a + hs2.a) ~<< 0
+   ,b = (hs1.b + hs2.b) ~<< 0
+   ,c = (hs1.c + hs2.c) ~<< 0
+   ,d = (hs1.d + hs2.d) ~<< 0
+   ,e = (hs1.e + hs2.e) ~<< 0
+   ,f = (hs1.f + hs2.f) ~<< 0
+   ,g = (hs1.g + hs2.g) ~<< 0
+   ,h = (hs1.h + hs2.h) ~<< 0
   }
 
 outerLoop : HS -> Int -> Int -> Int -> Int -> Bool -> Message -> Int -> HS
@@ -297,14 +302,14 @@ outerLoop hs block start bytes index is224 message length =
           start2 = i - 64
           (blocks2, index3) =
             if (index2 == length) then
-              ( orIntoBlocks (shiftRight i 2) (getAt (and i 3) extra) blocks
+              ( orIntoBlocks (i ~>> 2) (getAt (and i 3) extra) blocks
               , index2 + 1)
             else
               (blocks2, index2)
       in
           let block2 = get 16 blocks2
               (end, blocks3) = if index > length && i < 56 then
-                                 (True, Array.set 15 (shiftLeft bytes2 3) blocks2)
+                                 (True, Array.set 15 (bytes2 ~<< 3) blocks2)
                                else
                                  (False, blocks)
           in
@@ -334,7 +339,7 @@ toHex1 x =
 -- Convert the low 32 bits of an integer to a 4-character hex string.
 toHex8 : Int -> String
 toHex8 x =
-  String.fromList (List.map (\shift -> toHex1 (shiftRight x shift))
+  String.fromList (List.map (\shift -> toHex1 (x ~>> shift))
                             [28, 24, 20, 16, 12, 8, 4, 0])
 
 -- Convert 7 elements of an HS instance to a 56-character hex string.
