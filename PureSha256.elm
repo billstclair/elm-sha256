@@ -9,7 +9,13 @@
 --
 ----------------------------------------------------------------------
 
-module PureSha256 exposing (sha256, sha224)
+module PureSha256 exposing ( sha256
+                           , sha224
+                            -- for debugging
+                           , toHex1, toHex8, toHex56, toHex64  
+                           , hash, outerLoop, indexLoop, jLoop1, jLoop2
+                           , makeBlocks, stringToCodes, initialHs
+                           )
 
 {-| This module is a Pure Elm implementation of the sha256 and sha224
 crytographic hash functions.
@@ -25,9 +31,7 @@ import Char
 import List.Extra as LE
 import Array exposing (Array)
 import Bitwise exposing (and, or, shiftLeft, shiftRight, shiftRightLogical)
-
-hexChars : List Char
-hexChars = String.toList("0123456789abcdef")
+import Debug exposing (log)
 
 extra : List Int
 extra = [-2147483648, 8388608, 32768, 128]
@@ -68,55 +72,56 @@ getShift : Int -> (Int -> Int)
 getShift i =
   (\n -> 8 * (3 - (and (i + n) 3)))
 
-indexLoop : Int -> Int -> Array Int -> Int -> Array Int -> (Int, Array Int)
+indexLoop : Int -> Int -> Array Int -> Int -> Array Int -> (Int, Int, Array Int)
 indexLoop i index message length blocks =
   if i > 64 || index >= length then
-    (i, blocks)
+    (i, index, blocks)
   else
     let code = (get index message)
         shift = getShift i
-        (iInc, idxInc, val) =
-          if code < 0x80 then
+    in
+        let (iInc, idxInc, val) =
+              if code < 0x80 then
                 ( 1
                 , 0
-                , shiftLeft code (shift 1)
+                , shiftLeft code (shift 0)
                 )
               else if code < 0x800 then
                 ( 2
                 , 0
-                , or (shiftLeft (or 0xc0 (shiftRight code 6)) (shift 1))
-                    (shiftLeft (or 0x80 (and code 0x3f)) (shift 2))
+                , or (shiftLeft (or 0xc0 (shiftRight code 6)) (shift 0))
+                     (shiftLeft (or 0x80 (and code 0x3f)) (shift 1))
                 )
               else if code < 0xd800 || code >= 0xe000 then
                 ( 3
                 , 0
-                , or (shiftLeft (or 0xe0 (shiftRight code 12)) (shift 1))
-                    (shiftLeft
-                       (or 0x80 (and (shiftRight code 6) 0x3f))
-                       (shift 2))
-                    |> or (shiftLeft (or 0x80 (and code 0x3f)) (shift 3))
+                , or (shiftLeft (or 0xe0 (shiftRight code 12)) (shift 0))
+                     (shiftLeft
+                        (or 0x80 (and (shiftRight code 6) 0x3f))
+                        (shift 1))
+                    |> or (shiftLeft (or 0x80 (and code 0x3f)) (shift 2))
                 )
               else
                 ( 4
                 , 1
                 , let code2 = (+) 0x10000
-                                (or (shiftLeft (and code 0x3ff) 10)
-                                   (and (get (index+1) message) 0x3ff))
+                                  (or (shiftLeft (and code 0x3ff) 10)
+                                      (and (get (index+1) message) 0x3ff))
                   in
-                      or (shiftLeft (or 0xf0 (shiftRight code2 18)) (shift 1))
-                        (shiftLeft
-                           (or 0x80 (and (shiftRight code2 12) 0x3f))
-                           (shift 2))
+                      or (shiftLeft (or 0xf0 (shiftRight code2 18)) (shift 0))
+                         (shiftLeft
+                            (or 0x80 (and (shiftRight code2 12) 0x3f))
+                            (shift 1))
                         |> or (shiftLeft
                                  (or 0x80 (and (shiftRight code2 6) 0x3f))
-                                 (shift 3))
+                                 (shift 2))
                         |> or (shiftLeft (or 0x80 (and code2 0x3f)) (shift 3))
                 )
-        bidx = shiftRight i 2
-        bi = get bidx blocks
-        blocks = Array.set bidx (or bi val) blocks
-    in
-        indexLoop (i + iInc) (index + idxInc) message length blocks
+        in
+            let 
+                blocks = orIntoArray (shiftRight i 2) val blocks
+            in
+                indexLoop (i + iInc) (index + idxInc + 1) message length blocks
 
 type alias HS =
   { h0 : Int
@@ -129,67 +134,37 @@ type alias HS =
   , h7 : Int
   }
 
-hash : String -> Bool -> String
-hash message is224 =
-  let hs = if is224 then
-             -- sha224
-             { h0 = 0xc1059ed8
-             , h1 = 0x367cd507
-             , h2 = 0x3070dd17
-             , h3 = 0xf70e5939
-             , h4 = 0xffc00b31
-             , h5 = 0x68581511
-             , h6 = 0x64f98fa7
-             , h7 = 0xbefa4fa4
-             }
-           else
-             -- sha256
-             { h0 = 0x6a09e667
-             , h1 = 0xbb67ae85
-             , h2 = 0x3c6ef372
-             , h3 = 0xa54ff53a
-             , h4 = 0x510e527f
-             , h5 = 0x9b05688c
-             , h6 = 0x1f83d9ab
-             , h7 = 0x5be0cd19
-             }
-      block = 0
-      i = 0
-      bytes = 0
-      index = 0
-      msgArray = Array.fromList (List.map Char.toCode (String.toList message))
-  in
-      outerLoop hs block i bytes index msgArray (Array.length msgArray)
-
 makeBlocks : Int -> Array Int
 makeBlocks block =
   Array.append (Array.fromList [block]) (Array.repeat 16 0)
-
+    
 jLoop1 : Int -> (Array Int) -> (Array Int)
 jLoop1 j blocks =
   let t1 = get (j-15) blocks
-      s0 = or (shiftRightLogical t1 7) (shiftLeft t1 25)
-             |> logxor (or (shiftRightLogical t1 18)
-                               (shiftLeft t1 14))
-             |> logxor (shiftRightLogical t1 3)
       t2 = get (j-2) blocks
-      s1 = or (shiftRightLogical t2 17) (shiftLeft t2 25)
-             |> logxor (or (shiftRightLogical t1 18)
-                       (shiftLeft t1 14))
-             |> logxor (shiftRightLogical t1 10)
-      blocks = Array.set
-                 j
-                 (shiftLeft ((get (j-16) blocks) +
-                               s0 +
-                               (get (j-7) blocks) +
-                               s1)
-                    0)
-                 blocks
   in
-      if j >= 63 then
-        blocks
-      else
-        jLoop1 (j+1) blocks
+      let s0 = or (shiftRightLogical t1 7) (shiftLeft t1 25)
+                 |> logxor (or (shiftRightLogical t1 18)
+                               (shiftLeft t1 14))
+                 |> logxor (shiftRightLogical t1 3)
+          s1 = or (shiftRightLogical t2 17) (shiftLeft t2 25)
+                 |> logxor (or (shiftRightLogical t1 18)
+                               (shiftLeft t1 14))
+                 |> logxor (shiftRightLogical t1 10)
+      in
+          let blocks = Array.set
+                       j
+                       (shiftLeft ((get (j-16) blocks) +
+                                     s0 +
+                                     (get (j-7) blocks) +
+                                     s1)
+                          0)
+                         blocks
+          in
+              if j >= 63 then
+                blocks
+              else
+                jLoop1 (j+1) blocks
 
 jLoop2 : Int -> HS -> (Array Int) -> HS
 jLoop2 j hs blocks =
@@ -268,78 +243,115 @@ jLoop2 j hs blocks =
       h7 = h7 + h << 0;
 -}
 
-outerLoop : HS -> Int -> Int -> Int -> Int -> Array Int -> Int -> String
-outerLoop hs block i bytes index message length =
-  let (i, blocks) = indexLoop i index message length (makeBlocks block)
-      bytes = bytes + i - start
-      start = i - 64
+outerLoop : HS -> Int -> Int -> Int -> Int -> Array Int -> Int -> HS
+outerLoop hs block start bytes index message length =
+  let (i, index, blocks) = indexLoop start index message length (makeBlocks block)
   in
-      let (blocks, index) =
+      let bytes = bytes + i - start
+          start = i - 64
+          (blocks, index) =
             if (index == length) then
               ( orIntoArray (shiftRight i 2) (getAt (and i 3) extra) blocks
               , index + 1)
             else
               (blocks, index)
-          block = get 16 blocks
       in
-          let (end, blocks) = if index > length && i < 56 then
+          let block = get 16 blocks
+              (end, blocks) = if index > length && i < 56 then
                                 (True, Array.set 15 (shiftLeft bytes 3) blocks)
                               else
                                 (False, blocks)
           in
               let blocks = jLoop1 16 blocks
-                  hs = jLoop2 0 hs blocks
               in
-                  if not end then
-                    outerLoop hs block i bytes index message length
-                  else
-                    "foo"
-{-
-    var hex = HEX_CHARS[(h0 >> 28) & 0x0F] + HEX_CHARS[(h0 >> 24) & 0x0F] +
-              HEX_CHARS[(h0 >> 20) & 0x0F] + HEX_CHARS[(h0 >> 16) & 0x0F] +
-              HEX_CHARS[(h0 >> 12) & 0x0F] + HEX_CHARS[(h0 >> 8) & 0x0F] +
-              HEX_CHARS[(h0 >> 4) & 0x0F] + HEX_CHARS[h0 & 0x0F] +
-              HEX_CHARS[(h1 >> 28) & 0x0F] + HEX_CHARS[(h1 >> 24) & 0x0F] +
-              HEX_CHARS[(h1 >> 20) & 0x0F] + HEX_CHARS[(h1 >> 16) & 0x0F] +
-              HEX_CHARS[(h1 >> 12) & 0x0F] + HEX_CHARS[(h1 >> 8) & 0x0F] +
-              HEX_CHARS[(h1 >> 4) & 0x0F] + HEX_CHARS[h1 & 0x0F] +
-              HEX_CHARS[(h2 >> 28) & 0x0F] + HEX_CHARS[(h2 >> 24) & 0x0F] +
-              HEX_CHARS[(h2 >> 20) & 0x0F] + HEX_CHARS[(h2 >> 16) & 0x0F] +
-              HEX_CHARS[(h2 >> 12) & 0x0F] + HEX_CHARS[(h2 >> 8) & 0x0F] +
-              HEX_CHARS[(h2 >> 4) & 0x0F] + HEX_CHARS[h2 & 0x0F] +
-              HEX_CHARS[(h3 >> 28) & 0x0F] + HEX_CHARS[(h3 >> 24) & 0x0F] +
-              HEX_CHARS[(h3 >> 20) & 0x0F] + HEX_CHARS[(h3 >> 16) & 0x0F] +
-              HEX_CHARS[(h3 >> 12) & 0x0F] + HEX_CHARS[(h3 >> 8) & 0x0F] +
-              HEX_CHARS[(h3 >> 4) & 0x0F] + HEX_CHARS[h3 & 0x0F] +
-              HEX_CHARS[(h4 >> 28) & 0x0F] + HEX_CHARS[(h4 >> 24) & 0x0F] +
-              HEX_CHARS[(h4 >> 20) & 0x0F] + HEX_CHARS[(h4 >> 16) & 0x0F] +
-              HEX_CHARS[(h4 >> 12) & 0x0F] + HEX_CHARS[(h4 >> 8) & 0x0F] +
-              HEX_CHARS[(h4 >> 4) & 0x0F] + HEX_CHARS[h4 & 0x0F] +
-              HEX_CHARS[(h5 >> 28) & 0x0F] + HEX_CHARS[(h5 >> 24) & 0x0F] +
-              HEX_CHARS[(h5 >> 20) & 0x0F] + HEX_CHARS[(h5 >> 16) & 0x0F] +
-              HEX_CHARS[(h5 >> 12) & 0x0F] + HEX_CHARS[(h5 >> 8) & 0x0F] +
-              HEX_CHARS[(h5 >> 4) & 0x0F] + HEX_CHARS[h5 & 0x0F] +
-              HEX_CHARS[(h6 >> 28) & 0x0F] + HEX_CHARS[(h6 >> 24) & 0x0F] +
-              HEX_CHARS[(h6 >> 20) & 0x0F] + HEX_CHARS[(h6 >> 16) & 0x0F] +
-              HEX_CHARS[(h6 >> 12) & 0x0F] + HEX_CHARS[(h6 >> 8) & 0x0F] +
-              HEX_CHARS[(h6 >> 4) & 0x0F] + HEX_CHARS[h6 & 0x0F];
-    if (!is224) {
-      hex += HEX_CHARS[(h7 >> 28) & 0x0F] + HEX_CHARS[(h7 >> 24) & 0x0F] +
-             HEX_CHARS[(h7 >> 20) & 0x0F] + HEX_CHARS[(h7 >> 16) & 0x0F] +
-             HEX_CHARS[(h7 >> 12) & 0x0F] + HEX_CHARS[(h7 >> 8) & 0x0F] +
-             HEX_CHARS[(h7 >> 4) & 0x0F] + HEX_CHARS[h7 & 0x0F];
+                  let hs = jLoop2 0 hs blocks
+                  in
+                      if end then
+                        hs
+                      else
+                        outerLoop hs block start bytes index message length
+
+-- Convert the low 4 bits of a number to a hex character.
+toHex1 : Int -> Char
+toHex1 x =
+  let x = (and x 0xf)
+  in
+      Char.fromCode (x + (if x < 10
+                          then Char.toCode('0')
+                          else (-10 + Char.toCode('a'))))
+
+-- Convert the low 32 bits of an integer to a 4-character hex string.
+toHex8 : Int -> String
+toHex8 x =
+  String.fromList (List.map (\shift -> toHex1 (shiftRight x shift))
+                            [28, 24, 20, 16, 12, 8, 4, 0])
+
+-- Convert 7 elements of an HS instance to a 56-character hex string.
+toHex56 : HS -> String
+toHex56 hs =
+  List.foldr
+    (++)
+    ""
+    (List.map
+       toHex8
+       [hs.h0, hs.h1, hs.h2, hs.h3, hs.h4, hs.h5, hs.h6])
+
+-- Convert 8 elements of an HS instance to a 64-character hex string.
+toHex64 : HS -> String
+toHex64 hs =
+  (toHex56 hs) ++ (toHex8 hs.h7)
+
+stringToCodes: String -> Array Int
+stringToCodes string =
+  Array.fromList (List.map Char.toCode (String.toList string))
+
+initialHs : Bool -> HS
+initialHs is224 =
+  if is224 then
+    -- sha224
+    { h0 = 0xc1059ed8
+    , h1 = 0x367cd507
+    , h2 = 0x3070dd17
+    , h3 = 0xf70e5939
+    , h4 = 0xffc00b31
+    , h5 = 0x68581511
+    , h6 = 0x64f98fa7
+    , h7 = 0xbefa4fa4
     }
-    return hex;
-  };
-
--}
-
+  else
+    -- sha256
+    { h0 = 0x6a09e667
+    , h1 = 0xbb67ae85
+    , h2 = 0x3c6ef372
+    , h3 = 0xa54ff53a
+    , h4 = 0x510e527f
+    , h5 = 0x9b05688c
+    , h6 = 0x1f83d9ab
+    , h7 = 0x5be0cd19
+    }
+    
+hash : String -> Bool -> String
+hash message is224 =
+  let hs = initialHs is224
+      block = 0
+      start = 0
+      bytes = 0
+      index = 0
+      msgArray = stringToCodes message
+      length = String.length message
+  in
+      let hs = outerLoop hs block start bytes index msgArray length
+      in
+          if is224 then
+            toHex56 hs
+          else
+            toHex64 hs
 
 {-| Returns the sha256 hash of its argument.
 -}
 sha256 : String -> String
 sha256 message =
-  hash message False
+  hash (log "message" message) False
 
 {-| Returns the sha224 hash of its argument.
 -}

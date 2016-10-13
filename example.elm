@@ -1,4 +1,4 @@
-import Sha256 exposing (sha256, sha224)
+import PureSha256 exposing (sha256, sha224)
 
 import Html exposing (Html, div, p, text)
 import Html.Attributes exposing (style)
