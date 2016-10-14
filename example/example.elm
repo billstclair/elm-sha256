@@ -11,6 +11,7 @@
 
 import Sha256 exposing (sha256, sha224)
 import NativeSha256 as N
+import SHA
 
 import String
 import Char
@@ -30,11 +31,11 @@ import Formatting exposing (print, (<>), s, string, roundTo, int)
 
 render256 : String -> Html a
 render256 string =
-  render string "sha256" (sha256 string) (N.sha256 string)
+  render string "sha256" (sha256 string) (N.sha256 string) (SHA.sha256sum string)
 
 render224 : String -> Html a
 render224 string =
-  render string "sha224" (sha224 string) (N.sha224 string)
+  render string "sha224" (sha224 string) (N.sha224 string) (SHA.sha224sum string)
 
 main =
   Html.program
@@ -53,6 +54,7 @@ type alias Model =
   { startTime : Maybe Time
   , elmTime : Maybe Float
   , nativeTime: Maybe Float
+  , shaTime: Maybe Float
   }
       
 timeCmd : Cmd Msg
@@ -68,6 +70,7 @@ model =
     Nothing -- startTime
     Nothing -- elmTime
     Nothing -- nativeTime
+    Nothing -- shaTime
 
 -- UPDATE
 
@@ -99,35 +102,60 @@ timeNative : Int -> Int
 timeNative iterations =
   timeIt iterations N.sha256
 
+timeSHA : Int -> Int
+timeSHA iterations =
+  timeIt iterations SHA.sha256sum
+
+maybeTime : Time -> Model -> List (Maybe Time, Int -> Int, Time -> Model -> Model)
+          -> (Model, Cmd Msg)
+maybeTime now model specs =
+  case specs of
+      [] ->
+        (model, Cmd.none)
+      (head :: tail) ->
+        let (time, tester, updater) = head
+        in
+            case time of
+                Nothing ->
+                  let _ = tester timingIterations
+                      startTime = case model.startTime of
+                                      Nothing -> 0
+                                      Just t -> t
+                  in
+                      ( updater
+                          (now - startTime)
+                          {model | startTime = Just now}
+                      , timeCmd)
+                Just _ ->
+                  maybeTime now model tail
+
+updateNothing : Float -> Model -> Model
+updateNothing time model = model
+
+updateElmTime : Float -> Model -> Model
+updateElmTime time model = {model | elmTime = Just time}
+
+updateNativeTime : Float -> Model -> Model
+updateNativeTime time model = {model | nativeTime = Just time}
+
+updateSHATime : Float -> Model -> Model
+updateSHATime time model = {model | shaTime = Just time}
+
 update : Msg -> Model -> (Model, Cmd Msg)
 update msg model =
   case msg of
       Nop ->
         ( model, Cmd.none )
       Now time ->
-        case model.startTime of
-            Nothing ->
-              let _ = timeElm timingIterations
-              in
-                  ( { model | startTime = Just time }
-                  , timeCmd
-                  )
-            Just startTime ->
-              case model.elmTime of
-                  Nothing ->
-                    let _ = timeNative timingIterations
-                    in
-                        ( { model |
-                             startTime = Just time
-                           , elmTime = Just (time - startTime)
-                          }
-                        , timeCmd
-                        )
-                  Just _ ->
-                    ( { model | nativeTime = Just (time - startTime) }
-                    , Cmd.none
-                    )
-              
+        maybeTime
+          time
+          model
+          [ ( model.startTime, timeNative, updateNothing)
+          , ( model.nativeTime, timeElm, updateNativeTime)
+          , ( model.elmTime, timeSHA, updateElmTime)
+          , ( model.shaTime, identity, updateSHATime)
+          ]
+          
 -- SUBSCRIPTIONS
 
 subscriptions : Model -> Sub Msg
@@ -168,14 +196,16 @@ formatResult : Int -> String -> String -> String
 formatResult spaces kind hash =
   print resultFormat (String.repeat spaces nbsp) kind hash
 
-render : String -> String -> String -> String -> Html a
-render string hashName hash nativeHash =
+render : String -> String -> String -> String -> String -> Html a
+render string hashName hash nativeHash shaHash =
   div []
     [ text <| formatHash hashName string
     , br
-    , text <| formatResult 2 "Elm" hash
+    , text <| formatResult 2 "Sha256" hash
     , br
-    , text <| formatResult 4 "JS" nativeHash
+    , text <| formatResult 7 "SHA" shaHash
+    , br
+    , text <| formatResult 10 "JS" nativeHash
     ]
     
 timeFormat =
@@ -188,11 +218,11 @@ formatTime kind time =
       print timeFormat kind millis
 
 ratioFormat =
-  s "Elm/JS = " <> roundTo 2
+  string <> s " = " <> roundTo 2
 
-formatRatio : Float -> Float -> String
-formatRatio elmTime nativeTime =
-  print ratioFormat <| elmTime / nativeTime
+formatRatio : String -> Float -> Float -> String
+formatRatio label otherTime nativeTime =
+  print ratioFormat label (otherTime / nativeTime)
 
 copyrightFormat =
   s "Copyright " <> s copyright <> s " " <>
@@ -202,8 +232,8 @@ formatCopyright : Int -> String -> String -> String
 formatCopyright year who email =
   print copyrightFormat year who email
 
-renderScreen : Float -> Float -> Html Msg
-renderScreen elmTime nativeTime =
+renderScreen : Float -> Float -> Float -> Html Msg
+renderScreen elmTime nativeTime shaTime =
   div [ style [ ("font-family", "Arial, Helvetica, sans-serif")
               , ("font-size", "125%")
               ]
@@ -211,11 +241,15 @@ renderScreen elmTime nativeTime =
     [ h2 []
         [ text "elm-sha256 Demo" ]
     , p []
-        [ text <| formatTime "Elm" elmTime
+        [ text <| formatTime "Sha256" elmTime
         , br
-        , text <| formatTime "JS" nativeTime
+        , text <| formatTime "SHA" shaTime
         ,br
-        , text <| formatRatio elmTime nativeTime
+        , text <| formatTime "JS" nativeTime
+        , br
+        , text <| formatRatio "Sha256/JS" elmTime nativeTime
+        ,br
+        , text <| formatRatio "SHA/JS" shaTime nativeTime
         ]
     , p []
        (List.map render256 strings)
@@ -227,12 +261,8 @@ renderScreen elmTime nativeTime =
 
 view : Model -> Html Msg
 view model =
-  case model.elmTime of
-      Nothing ->
-        text "Timing Elm..."
-      Just elmTime ->
-        case model.nativeTime of
-            Nothing ->
-              text "Timing JS..."
-            Just nativeTime ->
-              renderScreen elmTime nativeTime
+  case (model.elmTime, model.nativeTime, model.shaTime) of
+      (Just elmTime, Just nativeTime, Just shaTime) ->
+        renderScreen elmTime nativeTime shaTime
+      a ->
+        text "Timing..."

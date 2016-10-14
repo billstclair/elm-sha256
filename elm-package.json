@@ -1,5 +1,5 @@
 {
-    "version": "1.0.0",
+    "version": "1.0.1",
     "summary": "SHA256 and SHA228 cryptographic hashes Elm.",
     "repository": "https://github.com/billstclair/elm-sha256.git",
     "license": "MIT",

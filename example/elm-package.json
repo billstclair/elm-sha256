@@ -4,8 +4,8 @@
     "repository": "https://github.com/billstclair/elm-sha256.git",
     "license": "MIT",
     "source-directories": [
-        "."
-      , ".."
+        ".",
+        ".."
     ],
     "exposed-modules": [],
     "native-modules": true,
@@ -14,7 +14,8 @@
         "elm-community/list-extra": "3.1.0 <= v < 4.0.0",
         "elm-lang/core": "4.0.5 <= v < 5.0.0",
         "elm-lang/html": "1.1.0 <= v < 2.0.0",
-        "krisajenkins/formatting": "4.0.1 <= v < 5.0.0"
+        "krisajenkins/formatting": "4.0.1 <= v < 5.0.0",
+        "spisemisu/elm-sha": "1.0.3 <= v < 2.0.0"
     },
     "elm-version": "0.17.1 <= v < 0.18.0"
 }
