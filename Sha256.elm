@@ -11,9 +11,6 @@
 
 module Sha256 exposing ( sha256
                        , sha224
-                       -- for debugging
-                       , toHex1, toHex8, toHex56, toHex64  
-                       , makeBlocks, stringToMessage, initialHs
                        )
 
 {-| This module is a Pure Elm implementation of the sha256 and sha224
@@ -22,8 +19,7 @@ crytographic hash functions.
 Thank you to Yi-Cyuan Chen for the JavaScript I converted.
 
 # Functions
-@docs sha256, sha224,
-      toHex1, toHex8, toHex56, toHex64, makeBlocks, stringToMessage, initialHs
+@docs sha256, sha224
 -}
 
 import String
@@ -130,7 +126,6 @@ type alias HS =
   , h : Int
   }
 
-{-|-}
 makeBlocks : Int -> Blocks
 makeBlocks block =
   Array.set 0 block (Array.repeat 64 0)
@@ -298,7 +293,6 @@ outerLoop hs block start bytes index is224 message length =
         hs3
 
 -- Convert the low 4 bits of a number to a hex character.
-{-|-}
 toHex1 : Int -> Char
 toHex1 x =
   let x2 = (x ~& 0xf)
@@ -308,14 +302,12 @@ toHex1 x =
                            else (-10 + Char.toCode('a'))))
 
 -- Convert the low 32 bits of an integer to a 4-character hex string.
-{-|-}
 toHex8 : Int -> String
 toHex8 x =
   String.fromList (List.map (\shift -> toHex1 (x ~>> shift))
                             [28, 24, 20, 16, 12, 8, 4, 0])
 
 -- Convert 7 elements of an HS instance to a 56-character hex string.
-{-|-}
 toHex56 : HS -> String
 toHex56 hs =
   List.foldr
@@ -326,17 +318,14 @@ toHex56 hs =
        [hs.a, hs.b, hs.c, hs.d, hs.e, hs.f, hs.g])
 
 -- Convert 8 elements of an HS instance to a 64-character hex string.
-{-|-}
 toHex64 : HS -> String
 toHex64 hs =
   (toHex56 hs) ++ (toHex8 hs.h)
 
-{-|-}
 stringToMessage: String -> Message
 stringToMessage string =
   Array.fromList (List.map Char.toCode (String.toList string))
 
-{-|-}
 initialHs : Bool -> HS
 initialHs is224 =
   if is224 then
