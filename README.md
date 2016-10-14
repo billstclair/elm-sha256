@@ -28,7 +28,7 @@ elm-reactor
 
 Then aim your browser at [localhost:8000/example.elm](http://localhost:8000/example.elm).
 
-It takes about a second before the screen appears, while it runs Sha256.sha256, SHA.sha256sum, and the native JS sha256 code, 1,000 times each, to time them.
+It takes about a second before the screen appears (on my 2011 iMac), while it runs Sha256.sha256, SHA.sha256sum, and the native JS code, 1,000 times each, to time them.
 
 ## Performance
 
