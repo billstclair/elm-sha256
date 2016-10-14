@@ -1,0 +1,19 @@
+{
+    "version": "1.0.0",
+    "summary": "A type-safe string formatting library - 'printf' for Elm.",
+    "repository": "https://github.com/billstclair/elm-sha256.git",
+    "license": "MIT",
+    "source-directories": [
+        ".",
+        ".."
+    ],
+    "exposed-modules": [],
+    "dependencies": {
+        "billstclair/elm-bitwise-infix": "1.0.1 <= v < 2.0.0",
+        "elm-community/list-extra": "3.1.0 <= v < 4.0.0",
+        "elm-community/elm-check": "1.0.0 <= v < 2.0.0",
+        "elm-community/elm-test": "1.1.0 <= v < 2.0.0",
+        "elm-lang/core": "4.0.0 <= v < 5.0.0"
+    },
+    "elm-version": "0.17.0 <= v < 0.18.0"
+}
