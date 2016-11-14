@@ -22,5 +22,5 @@ hash = NativeSha256.sha256("foo")
 hash2 = NativeSha256.sha224("foo")
 ```
 
-The reason you might _want_ to use the JS library is that it's 40 times as fast as the Elm version. Maybe some day I'll work at speeding it up, but I'll bet the compiler team will help with that.
+The reason you might _want_ to use the JS library is that it's over 30 times as fast as the Elm version. Maybe some day I'll work at speeding it up, but I'll bet the compiler team will help with that.
 

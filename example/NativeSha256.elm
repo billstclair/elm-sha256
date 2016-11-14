@@ -9,6 +9,7 @@
 --
 ----------------------------------------------------------------------
 
+
 module NativeSha256 exposing (sha256, sha224)
 
 {-| This module makes  available a JavaScript implementation of the
@@ -22,12 +23,16 @@ Thank you to Yi-Cyuan Chen for writing the JavaScript.
 
 import Native.Sha256
 
+
 {-| Returns the sha256 hash of its argument.
 -}
 sha256 : String -> String
-sha256 = Native.Sha256.sha256
+sha256 =
+    Native.Sha256.sha256
+
 
 {-| Returns the sha224 hash of its argument.
 -}
 sha224 : String -> String
-sha224 = Native.Sha256.sha224
+sha224 =
+    Native.Sha256.sha224
