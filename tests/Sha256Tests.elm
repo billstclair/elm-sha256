@@ -1,6 +1,6 @@
 module Sha256Tests exposing (tests)
 
-import ElmTest exposing (..)
+import Test exposing (..)
 import Sha256 exposing (sha256, sha224)
 
 

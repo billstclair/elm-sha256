@@ -11,6 +11,8 @@ Then aim your browser at [localhost:8000/example.elm](http://localhost:8000/exam
 
 It takes about a second before the screen appears (on my 2011 iMac), while it runs Sha256.sha256, SHA.sha256sum, and the native JS code, 1,000 times each, to time them.
 
+(I've commented out the SHA package timing, until it is upgraded to 0.18)
+
 ## Performance
 
 The ```example``` directory contains the native JavaScript library, wrapped as an Elm package. If you include ```NativeSha256.elm``` and the ```Native``` directory in your project, you can do the following to run the JavaScript code:
