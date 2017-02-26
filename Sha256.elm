@@ -481,8 +481,8 @@ sumHS hs1 hs2 =
     }
 
 
-outerLoop : HS -> Int -> Int -> Int -> Int -> Bool -> Message -> Int -> HS
-outerLoop hs block start bytes index is224 message length =
+outerLoop : Bool -> HS -> Int -> Int -> Int -> Int -> Bool -> Message -> Int -> HS
+outerLoop first hs block start bytes index is224 message length =
     let
         blocks =
             makeBlocks block
@@ -516,9 +516,6 @@ outerLoop hs block start bytes index is224 message length =
         blocks5 =
             jLoop1 16 blocks4
 
-        first =
-            True
-
         hs2 =
             jLoop2 0 first is224 hs blocks5
 
@@ -526,7 +523,7 @@ outerLoop hs block start bytes index is224 message length =
             sumHS hs hs2
     in
         if not end then
-            outerLoop hs3 block2 start2 bytes2 index3 is224 message length
+            outerLoop False hs3 block2 start2 bytes2 index3 is224 message length
         else
             hs3
 
@@ -643,7 +640,7 @@ hash string is224 =
             Array.length message
 
         hs2 =
-            outerLoop hs block start bytes index is224 message length
+            outerLoop True hs block start bytes index is224 message length
     in
         if is224 then
             toHex56 hs2
