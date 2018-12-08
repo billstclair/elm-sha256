@@ -2,7 +2,7 @@
 
 A simple conversion of a JavaScript sha256 library to Elm.
 
-Thank you to Yi-Cyuan Chen for the JavaScript ([github.com/emn178/js-sha256](https://github.com/emn178/js-sha256)).
+Thank you to Yi-Cyuan Chen for the JavaScript ([github.com/emn178/js-sha256](https://github.com/emn178/js-sha256)). That code is here in Sha256.js.
 
 To install it in your development directory:
 

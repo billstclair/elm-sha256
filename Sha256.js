@@ -1,11 +1,3 @@
-var _billstclair$elm_sha256$Native_Sha256 = function() {
-
-var res = {
-};
-
-sha256(res);
-return res;
-
 /**
  * [js-sha256]{@link https://github.com/emn178/js-sha256}
  *
@@ -217,4 +209,3 @@ function sha256 (root) {
   }
 }
 
-}();

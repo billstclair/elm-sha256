@@ -1,29 +1,34 @@
 module Tests exposing (all)
 
-import Test exposing (..)
 import Expect
 import List
+import Sha256 exposing (sha224, sha256)
+import Test exposing (..)
 
-import Sha256 exposing (sha256, sha224)
 
 all : Test
 all =
     Test.concat <|
         List.concatMap shaTests data
 
+
 shaTests : ( String, String, String ) -> List Test
 shaTests ( message, expected256, expected224 ) =
     [ shaTest message "sha256" expected256 sha256
     , shaTest message "sha224" expected224 sha224
     ]
-    
+
+
 shaTest : String -> String -> String -> (String -> String) -> Test
 shaTest message hashName expected hasher =
     test (hashName ++ " of \"" ++ message ++ "\"") <|
         \() ->
-            let res = hasher message
+            let
+                res =
+                    hasher message
             in
-              Expect.equal res expected
+            Expect.equal res expected
+
 
 data : List ( String, String, String )
 data =
