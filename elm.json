@@ -3,7 +3,7 @@
     "name": "billstclair/elm-sha256",
     "summary": "SHA256 and SHA228 cryptographic hashes Elm.",
     "license": "MIT",
-    "version": "1.0.7",
+    "version": "1.0.8",
     "exposed-modules": [
         "Sha256"
     ],
@@ -17,6 +17,6 @@
         "elm-community/list-extra": "8.1.0 <= v < 9.0.0"
     },
     "test-dependencies": {
-       "elm-explorations/test": "1.0.0 <= v < 2.0.0"
-     }
+        "elm-explorations/test": "1.0.0 <= v < 2.0.0"
+    }
 }
