@@ -32,7 +32,6 @@ import Bitwise
         , shiftLeftBy
         , shiftRightBy
         , shiftRightZfBy
-        , xor
         )
 import Char
 import Debug exposing (log)
@@ -271,13 +270,13 @@ jLoop1 j blocks =
 
         s0 =
             or (srz t1 7) (sl t1 25)
-                |> xor (or (srz t1 18) (sl t1 14))
-                |> xor (srz t1 3)
+                |> Bitwise.xor (or (srz t1 18) (sl t1 14))
+                |> Bitwise.xor (srz t1 3)
 
         s1 =
             or (srz t2 17) (sl t2 15)
-                |> xor (or (srz t2 19) (sl t2 13))
-                |> xor (srz t2 10)
+                |> Bitwise.xor (or (srz t2 19) (sl t2 13))
+                |> Bitwise.xor (srz t2 10)
 
         blocks2 =
             Array.set
@@ -328,24 +327,24 @@ jLoopBody2 j ab hs blocks =
 
         s0 =
             or (srz d 2) (sl d 30)
-                |> xor (or (srz d 13) (sl d 19))
-                |> xor (or (srz d 22) (sl d 10))
+                |> Bitwise.xor (or (srz d 13) (sl d 19))
+                |> Bitwise.xor (or (srz d 22) (sl d 10))
 
         s1 =
             or (srz h 6) (sl h 26)
-                |> xor (or (srz h 11) (sl h 21))
-                |> xor (or (srz h 25) (sl h 7))
+                |> Bitwise.xor (or (srz h 11) (sl h 21))
+                |> Bitwise.xor (or (srz h 25) (sl h 7))
 
         da =
             and d a
 
         maj =
-            xor da (and d b)
-                |> xor ab
+            Bitwise.xor da (and d b)
+                |> Bitwise.xor ab
 
         ch =
             and h e
-                |> xor (and (lognot h) f)
+                |> Bitwise.xor (and (lognot h) f)
 
         t1 =
             g + s1 + ch + get (j + 1) ks + get (j + 1) blocks
@@ -361,23 +360,23 @@ jLoopBody2 j ab hs blocks =
 
         s2 =
             or (srz c2 2) (sl c2 30)
-                |> xor (or (srz c2 13) (sl c2 19))
-                |> xor (or (srz c2 22) (sl c2 10))
+                |> Bitwise.xor (or (srz c2 13) (sl c2 19))
+                |> Bitwise.xor (or (srz c2 22) (sl c2 10))
 
         s3 =
             or (srz g2 6) (sl g2 26)
-                |> xor (or (srz g2 11) (sl g2 21))
-                |> xor (or (srz g2 25) (sl g2 7))
+                |> Bitwise.xor (or (srz g2 11) (sl g2 21))
+                |> Bitwise.xor (or (srz g2 25) (sl g2 7))
 
         cd =
             and c2 d
 
         maj2 =
-            xor cd (and c2 a)
-                |> xor da
+            Bitwise.xor cd (and c2 a)
+                |> Bitwise.xor da
 
         ch2 =
-            xor (and g2 h) (and (lognot g2) e)
+            Bitwise.xor (and g2 h) (and (lognot g2) e)
 
         t3 =
             f + s3 + ch2 + get (j + 2) ks + get (j + 2) blocks
@@ -393,23 +392,23 @@ jLoopBody2 j ab hs blocks =
 
         s4 =
             or (srz b2 2) (sl b2 30)
-                |> xor (or (srz b2 13) (sl b2 19))
-                |> xor (or (srz b2 22) (sl b2 10))
+                |> Bitwise.xor (or (srz b2 13) (sl b2 19))
+                |> Bitwise.xor (or (srz b2 22) (sl b2 10))
 
         s5 =
             or (srz f2 6) (sl f2 26)
-                |> xor (or (srz f2 11) (sl f2 21))
-                |> xor (or (srz f2 25) (sl f2 7))
+                |> Bitwise.xor (or (srz f2 11) (sl f2 21))
+                |> Bitwise.xor (or (srz f2 25) (sl f2 7))
 
         bc =
             and b2 c2
 
         maj3 =
-            xor bc (and b2 d)
-                |> xor cd
+            Bitwise.xor bc (and b2 d)
+                |> Bitwise.xor cd
 
         ch3 =
-            xor (and f2 g2) (and (lognot f2) h)
+            Bitwise.xor (and f2 g2) (and (lognot f2) h)
 
         t5 =
             e + s5 + ch3 + get (j + 3) ks + get (j + 3) blocks
@@ -469,23 +468,23 @@ jLoop2 j first is224 hs blocks =
                 let
                     s0 =
                         or (srz hs.a 2) (sl hs.a 30)
-                            |> xor (or (srz hs.a 13) (sl hs.a 19))
-                            |> xor (or (srz hs.a 22) (sl hs.a 10))
+                            |> Bitwise.xor (or (srz hs.a 13) (sl hs.a 19))
+                            |> Bitwise.xor (or (srz hs.a 22) (sl hs.a 10))
 
                     s1 =
                         or (srz hs.e 6) (sl hs.e 26)
-                            |> xor (or (srz hs.e 11) (sl hs.e 21))
-                            |> xor (or (srz hs.e 25) (sl hs.e 7))
+                            |> Bitwise.xor (or (srz hs.e 11) (sl hs.e 21))
+                            |> Bitwise.xor (or (srz hs.e 25) (sl hs.e 7))
 
                     ab2 =
                         and hs.a hs.b
 
                     maj =
-                        xor ab2 (and hs.a hs.c)
-                            |> xor (and hs.b hs.c)
+                        Bitwise.xor ab2 (and hs.a hs.c)
+                            |> Bitwise.xor (and hs.b hs.c)
 
                     ch =
-                        xor (and hs.e hs.f) (and (lognot hs.e) hs.g)
+                        Bitwise.xor (and hs.e hs.f) (and (lognot hs.e) hs.g)
 
                     t3 =
                         hs.h + s1 + ch + get j ks + get j blocks
