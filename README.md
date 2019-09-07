@@ -18,3 +18,5 @@ import Sha256 exposing (sha256, sha224)
 hash = sha256("foo")
 hash2 = sha224("foo")
 ```
+
+190907: Builds in Elm 0.19.1
