@@ -32,7 +32,11 @@ shaTest message hashName expected hasher =
 
 data : List ( String, String, String )
 data =
-    [ ( "foo"
+    [ ( ""
+      , "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      , "d14a028c2a3a2bc9476102bb288234c415a2b01f828ea62ac5b3e42f"
+      )
+    , ( "foo"
       , "2c26b46b68ffc68ff99b453c1d30413413422d706483bfa0f98a5e886266e7ae"
       , "0808f64e60d58979fcb676c96ec938270dea42445aeefcd3a4e6f8db"
       )
