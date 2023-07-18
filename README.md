@@ -7,7 +7,7 @@ Thank you to Yi-Cyuan Chen for the JavaScript ([github.com/emn178/js-sha256](htt
 To install it in your development directory:
 
 ```
-elm package install billstclair/elm-sha256
+elm install billstclair/elm-sha256
 ```
 
 To use it from your code:
